@@ -1,0 +1,6 @@
+{
+  "name": "Performances Booster",
+  "description": "Activité Amazon · Performance & Primes - Plateforme de gestion de la performance, objectifs et primes multicanal.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
