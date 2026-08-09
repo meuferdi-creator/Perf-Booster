@@ -7,6 +7,7 @@ import { Tabs } from '../../components/ui/Tabs';
 import { Table, TableHeader, TableRow, TableHead, TableCell } from '../../components/ui/Table';
 import { store } from '../../lib/store';
 import { getStoredAuth } from '../../lib/auth-helpers';
+import { filterByManager } from '../../lib/perimeter';
 import { Agent, MonthlyResult, WeeklyPerformance } from '../../types';
 import { formatFCFA } from '../../lib/kpi-utils';
 import { useNavigate } from 'react-router-dom';
@@ -26,10 +27,9 @@ export const ManagerDashboardPage: React.FC = () => {
       const allMonthly = store.getMonthlyResults();
       const allPerfs = store.getWeeklyPerformances();
 
-      const managerName = currentAuth?.manager_name || 'SABI Prospere';
-      setAgents(allAgents.filter((a) => a.manager_name === managerName));
-      setMonthlyResults(allMonthly.filter((m) => m.manager_name === managerName));
-      setWeeklyPerfs(allPerfs.filter((p) => p.manager_name === managerName));
+      setAgents(filterByManager(allAgents));
+      setMonthlyResults(filterByManager(allMonthly));
+      setWeeklyPerfs(filterByManager(allPerfs));
     };
 
     update();

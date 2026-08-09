@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { UserPlus, Search, Edit2, Trash2, CheckCircle2, XCircle } from 'lucide-react';
+import { UserPlus, Search, Edit2, Trash2, CheckCircle2, XCircle, Upload } from 'lucide-react';
 import { Card } from '../../components/ui/Card';
 import { Input } from '../../components/ui/Input';
 import { Button } from '../../components/ui/Button';
@@ -9,13 +9,16 @@ import { Dialog } from '../../components/ui/Dialog';
 import { Select } from '../../components/ui/Select';
 import { store } from '../../lib/store';
 import { getStoredAuth } from '../../lib/auth-helpers';
+import { filterByManager } from '../../lib/perimeter';
 import { Agent, AncienneteType, ContratType } from '../../types';
+import { AgentMassImportModal } from '../../components/manager/AgentMassImportModal';
 
 export const ManagerAgentsPage: React.FC = () => {
   const auth = getStoredAuth();
   const [agents, setAgents] = useState<Agent[]>([]);
   const [search, setSearch] = useState('');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [editingAgent, setEditingAgent] = useState<Agent | null>(null);
 
   // Form State
@@ -28,10 +31,8 @@ export const ManagerAgentsPage: React.FC = () => {
 
   useEffect(() => {
     const update = () => {
-      const currentAuth = getStoredAuth();
       const all = store.getAgents();
-      const managerName = currentAuth?.manager_name || 'SABI Prospere';
-      setAgents(all.filter((a) => a.manager_name === managerName));
+      setAgents(filterByManager(all));
     };
 
     update();
@@ -104,9 +105,14 @@ export const ManagerAgentsPage: React.FC = () => {
           <p className="text-xs text-slate-500">Répertoire des conseillers sous la gestion de {auth?.manager_name || 'SABI Prospere'}</p>
         </div>
 
-        <Button variant="primary" icon={<UserPlus className="w-4 h-4" />} onClick={openNewAgentModal}>
-          Nouveau Conseiller
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button variant="secondary" icon={<Upload className="w-4 h-4" />} onClick={() => setIsImportModalOpen(true)}>
+            Importer des Agents
+          </Button>
+          <Button variant="primary" icon={<UserPlus className="w-4 h-4" />} onClick={openNewAgentModal}>
+            Nouveau Conseiller
+          </Button>
+        </div>
       </div>
 
       <Card noPadding>
@@ -215,6 +221,15 @@ export const ManagerAgentsPage: React.FC = () => {
           </div>
         </form>
       </Dialog>
+
+      <AgentMassImportModal
+        isOpen={isImportModalOpen}
+        onClose={() => setIsImportModalOpen(false)}
+        onImportComplete={() => {
+          const all = store.getAgents();
+          setAgents(filterByManager(all));
+        }}
+      />
     </div>
   );
 };

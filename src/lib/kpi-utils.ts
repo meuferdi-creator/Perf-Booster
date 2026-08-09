@@ -12,6 +12,7 @@ export const KPI_LABELS: Record<string, string> = {
   dmt: 'DMT',
   vol: 'Volume',
   presence: 'Présence',
+  assiduite: 'Assiduité',
   tickets: 'Tickets',
 };
 
@@ -251,17 +252,34 @@ export function getScoreLevel(score: number) {
   return { label: 'Critique', color: 'text-red-500', emoji: '🚨' };
 }
 
+export function calculateAssiduiteFromPerf(perf: { h_planifiees?: number | null; h_absence?: number | null; presence?: number | null; assiduite?: number | null }): number | null {
+  if (!perf) return null;
+  if (perf.h_planifiees != null && perf.h_planifiees > 0) {
+    const absence = perf.h_absence || 0;
+    return Math.max(0, Math.min(100, ((perf.h_planifiees - absence) / perf.h_planifiees) * 100));
+  }
+  if (perf.assiduite != null && !isNaN(perf.assiduite)) {
+    return perf.assiduite <= 1 ? perf.assiduite * 100 : perf.assiduite;
+  }
+  if (perf.presence != null && !isNaN(perf.presence)) {
+    return perf.presence <= 1 ? perf.presence * 100 : perf.presence;
+  }
+  return null;
+}
+
 export function formatKpiValue(key: string, value: number | null | undefined): string {
   if (value == null || isNaN(value)) return 'N/A';
   switch (key) {
     case 'rap':
     case 'tr':
     case 'ccx':
-      return `${(value * 100).toFixed(1)}%`;
+      return `${(value <= 1 ? value * 100 : value).toFixed(1)}%`;
+    case 'assiduite':
+    case 'presence':
+      return `${(value <= 1 ? value * 100 : value).toFixed(1)}%`;
     case 'dmt':
       return `${Math.round(value)} s`;
     case 'vol':
-    case 'presence':
     case 'tickets':
       return Number.isFinite(value) ? value.toString() : 'N/A';
     default:

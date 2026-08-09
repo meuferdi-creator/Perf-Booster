@@ -80,11 +80,12 @@ export const ExportFilterDialog: React.FC<ExportFilterDialogProps> = ({
           value={kpi}
           onChange={(e) => setKpi(e.target.value)}
           options={[
-            { value: 'all', label: 'Tous les KPIs (RAP, TR, CCX, DMT)' },
+            { value: 'all', label: 'Tous les KPIs (RAP, TR, CCX, DMT, Assiduité)' },
             { value: 'rap', label: 'RAP (Résolution au 1er contact)' },
             { value: 'tr', label: 'TR (Taux de transfert)' },
             { value: 'ccx', label: 'CCX (Customer Contact Experience)' },
             { value: 'dmt', label: 'DMT (Durée moyenne de traitement)' },
+            { value: 'assiduite', label: 'Assiduité (Taux de Présence)' },
           ]}
         />
 

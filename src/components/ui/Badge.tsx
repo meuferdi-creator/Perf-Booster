@@ -15,26 +15,33 @@ export const Badge: React.FC<BadgeProps> = ({
   icon,
   className = '',
 }) => {
-  const base = 'inline-flex items-center font-medium rounded-full border whitespace-nowrap';
+  const base = 'inline-flex items-center font-bold rounded-full border whitespace-nowrap shadow-2xs select-none';
 
   const sizes = {
-    sm: 'px-2 py-0.5 text-xs gap-1',
-    md: 'px-2.5 py-1 text-xs gap-1.5',
+    sm: 'px-2 py-0.5 text-3xs gap-1',
+    md: 'px-2.5 py-1 text-2xs gap-1.5',
   };
 
   const variants = {
-    success: 'bg-emerald-50 text-emerald-700 border-emerald-200/80 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800/60',
-    warning: 'bg-amber-50 text-amber-700 border-amber-200/80 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800/60',
-    danger: 'bg-rose-50 text-rose-700 border-rose-200/80 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-800/60',
-    info: 'bg-blue-50 text-blue-700 border-blue-200/80 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-800/60',
-    purple: 'bg-indigo-50 text-[#814BE7] border-indigo-200/80 dark:bg-indigo-950/40 dark:text-indigo-300 dark:border-indigo-800/60',
-    neutral: 'bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700',
+    // WCAG AAA / AA compliant contrast values in both light and dark modes
+    success:
+      'bg-emerald-100 text-emerald-900 border-emerald-300 dark:bg-emerald-950/80 dark:text-emerald-200 dark:border-emerald-700/80',
+    warning:
+      'bg-amber-100 text-amber-900 border-amber-300 dark:bg-amber-950/80 dark:text-amber-200 dark:border-amber-700/80',
+    danger:
+      'bg-rose-100 text-rose-900 border-rose-300 dark:bg-rose-950/80 dark:text-rose-200 dark:border-rose-700/80',
+    info:
+      'bg-sky-100 text-sky-900 border-sky-300 dark:bg-sky-950/80 dark:text-sky-200 dark:border-sky-700/80',
+    purple:
+      'bg-purple-100 text-purple-900 border-purple-300 dark:bg-purple-950/80 dark:text-purple-200 dark:border-purple-700/80',
+    neutral:
+      'bg-slate-200 text-slate-800 border-slate-300 dark:bg-slate-800 dark:text-slate-200 dark:border-slate-700',
   };
 
   return (
     <span className={`${base} ${sizes[size]} ${variants[variant]} ${className}`}>
       {icon && <span className="shrink-0">{icon}</span>}
-      {children}
+      <span>{children}</span>
     </span>
   );
 };

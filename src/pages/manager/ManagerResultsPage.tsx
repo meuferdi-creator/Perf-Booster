@@ -7,6 +7,7 @@ import { Table, TableHeader, TableRow, TableHead, TableCell } from '../../compon
 import { ResultsEditDialog } from '../../components/manager/ResultsEditDialog';
 import { store } from '../../lib/store';
 import { getStoredAuth } from '../../lib/auth-helpers';
+import { filterByManager } from '../../lib/perimeter';
 import { WeeklyPerformance, MonthlyResult } from '../../types';
 import { formatFCFA, formatKpiValue } from '../../lib/kpi-utils';
 
@@ -22,13 +23,11 @@ export const ManagerResultsPage: React.FC = () => {
 
   useEffect(() => {
     const update = () => {
-      const currentAuth = getStoredAuth();
       const allW = store.getWeeklyPerformances();
       const allM = store.getMonthlyResults();
-      const managerName = currentAuth?.manager_name || 'SABI Prospere';
 
-      setWeeklyPerfs(allW.filter((p) => p.manager_name === managerName));
-      setMonthlyResults(allM.filter((m) => m.manager_name === managerName));
+      setWeeklyPerfs(filterByManager(allW));
+      setMonthlyResults(filterByManager(allM));
     };
 
     update();

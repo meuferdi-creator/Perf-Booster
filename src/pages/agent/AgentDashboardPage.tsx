@@ -31,12 +31,20 @@ export const AgentDashboardPage: React.FC = () => {
       const allPerfs = store.getWeeklyPerformances();
       const allMonthly = store.getMonthlyResults();
 
-      const agentId = currentAuth?.id || 'agent-1163';
-      const myPerfs = allPerfs.filter((p) => p.agent_id === agentId || p.log_activite === currentAuth?.log_activite);
+      const agentId = currentAuth?.id;
+      const myPerfs = allPerfs.filter(
+        (p) =>
+          (agentId && p.agent_id === agentId) ||
+          (currentAuth?.log_activite && p.log_activite === currentAuth.log_activite)
+      );
       setPerfs(myPerfs);
 
-      const myMonth = allMonthly.find((m) => m.agent_id === agentId || m.agent_name.includes(currentAuth?.prenom || 'Shalom'));
-      setMonthlyRes(myMonth || allMonthly[0]);
+      const myMonth = allMonthly.find(
+        (m) =>
+          (agentId && m.agent_id === agentId) ||
+          (currentAuth?.matricule && m.matricule_rh === currentAuth.matricule)
+      );
+      setMonthlyRes(myMonth || null);
     };
 
     update();

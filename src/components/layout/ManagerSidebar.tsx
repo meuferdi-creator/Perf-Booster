@@ -14,17 +14,23 @@ import {
   History,
   CalendarDays,
   LogOut,
-  Zap,
+  KeyRound,
   Briefcase,
+  X,
 } from 'lucide-react';
 import { clearAuth, getStoredAuth } from '../../lib/auth-helpers';
 
-export const ManagerSidebar: React.FC = () => {
+interface ManagerSidebarProps {
+  onClose?: () => void;
+}
+
+export const ManagerSidebar: React.FC<ManagerSidebarProps> = ({ onClose }) => {
   const navigate = useNavigate();
   const auth = getStoredAuth();
 
   const handleLogout = () => {
     clearAuth();
+    if (onClose) onClose();
     navigate('/');
   };
 
@@ -44,16 +50,27 @@ export const ManagerSidebar: React.FC = () => {
   ];
 
   return (
-    <aside className="w-64 bg-slate-900 text-slate-300 flex flex-col h-screen sticky top-0 border-r border-slate-800 shrink-0">
+    <aside className="w-64 bg-slate-900 text-slate-300 flex flex-col h-full md:h-screen sticky top-0 border-r border-slate-800 shrink-0">
       {/* Brand Header */}
-      <div className="p-5 border-b border-slate-800 flex items-center gap-3">
-        <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-[#814BE7] to-purple-600 flex items-center justify-center text-white shadow-lg shadow-[#814BE7]/30">
-          <Briefcase className="w-5 h-5" />
+      <div className="p-5 border-b border-slate-800 flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-[#814BE7] to-purple-600 flex items-center justify-center text-white shadow-lg shadow-[#814BE7]/30">
+            <Briefcase className="w-5 h-5" />
+          </div>
+          <div>
+            <h1 className="font-bold text-white text-base leading-tight">Performances</h1>
+            <p className="text-2xs text-purple-400 font-semibold tracking-wide uppercase">Booster · Manager</p>
+          </div>
         </div>
-        <div>
-          <h1 className="font-bold text-white text-base leading-tight">Performances</h1>
-          <p className="text-2xs text-purple-400 font-semibold tracking-wide uppercase">Booster · Manager</p>
-        </div>
+        {onClose && (
+          <button
+            onClick={onClose}
+            className="md:hidden p-2 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition-colors"
+            title="Fermer le menu"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        )}
       </div>
 
       {/* Scope Indicator */}
@@ -71,8 +88,11 @@ export const ManagerSidebar: React.FC = () => {
               key={item.to}
               to={item.to}
               end={item.end}
+              onClick={() => {
+                if (onClose) onClose();
+              }}
               className={({ isActive }) =>
-                `flex items-center justify-between px-3.5 py-2 rounded-xl text-xs font-semibold transition-all group ${
+                `flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all group ${
                   isActive
                     ? 'bg-[#814BE7] text-white shadow-md shadow-[#814BE7]/25'
                     : 'text-slate-400 hover:text-slate-100 hover:bg-slate-800/60'
@@ -105,13 +125,25 @@ export const ManagerSidebar: React.FC = () => {
               <p className="text-3xs text-purple-400 truncate">Manager d'équipe</p>
             </div>
           </div>
-          <button
-            onClick={handleLogout}
-            className="p-1.5 text-slate-400 hover:text-rose-400 rounded-lg hover:bg-slate-800 transition-colors"
-            title="Déconnexion"
-          >
-            <LogOut className="w-4 h-4" />
-          </button>
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => {
+                if (onClose) onClose();
+                navigate('/change-password');
+              }}
+              className="p-2 text-slate-400 hover:text-purple-300 rounded-lg hover:bg-slate-800 transition-colors"
+              title="Modifier mon mot de passe"
+            >
+              <KeyRound className="w-4 h-4" />
+            </button>
+            <button
+              onClick={handleLogout}
+              className="p-2 text-slate-400 hover:text-rose-400 rounded-lg hover:bg-slate-800 transition-colors"
+              title="Déconnexion"
+            >
+              <LogOut className="w-4 h-4" />
+            </button>
+          </div>
         </div>
       </div>
     </aside>

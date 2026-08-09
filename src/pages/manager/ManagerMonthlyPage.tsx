@@ -7,6 +7,7 @@ import { Table, TableHeader, TableRow, TableHead, TableCell } from '../../compon
 import { Badge } from '../../components/ui/Badge';
 import { store } from '../../lib/store';
 import { getStoredAuth } from '../../lib/auth-helpers';
+import { filterByManager } from '../../lib/perimeter';
 import { MonthlyResult } from '../../types';
 import { formatFCFA } from '../../lib/kpi-utils';
 
@@ -16,10 +17,8 @@ export const ManagerMonthlyPage: React.FC = () => {
 
   useEffect(() => {
     const update = () => {
-      const currentAuth = getStoredAuth();
       const all = store.getMonthlyResults();
-      const managerName = currentAuth?.manager_name || 'SABI Prospere';
-      setMonthlyResults(all.filter((m) => m.manager_name === managerName));
+      setMonthlyResults(filterByManager(all));
     };
 
     update();

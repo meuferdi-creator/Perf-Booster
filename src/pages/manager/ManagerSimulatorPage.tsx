@@ -25,6 +25,7 @@ import { Table, TableHeader, TableRow, TableHead, TableCell } from '../../compon
 import { AncienneteType, CanalType, SavedSimulation } from '../../types';
 import { primeForCanal, formatFCFA, KPI_TARGETS, calculateMulticanalPrime } from '../../lib/kpi-utils';
 import { store } from '../../lib/store';
+import { filterByManager } from '../../lib/perimeter';
 import {
   getAvailableMonths,
   getAgentImportedData,
@@ -64,7 +65,7 @@ export const ManagerSimulatorPage: React.FC = () => {
       setSelectedMois(availableM[0]);
     }
 
-    const allAgents = store.getAgents();
+    const allAgents = filterByManager(store.getAgents());
     const formattedAgents = allAgents.map((a) => ({
       id: a.id,
       matricule: a.matricule_rh,
@@ -72,7 +73,7 @@ export const ManagerSimulatorPage: React.FC = () => {
     }));
 
     // Add any agents from monthly results that might not be in agents array
-    const monthlyRes = store.getMonthlyResults();
+    const monthlyRes = filterByManager(store.getMonthlyResults());
     monthlyRes.forEach((m) => {
       if (!formattedAgents.some((a) => a.id === m.agent_id || a.matricule === m.matricule_rh)) {
         formattedAgents.push({

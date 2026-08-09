@@ -8,6 +8,7 @@ import { exportMonthlyResultsToExcel, exportWeeklyPerfsToExcel } from '../../lib
 import { exportMonthlyResultsToPDF } from '../../lib/pdf-generator';
 import { exportMonthlyResultsToPPTX } from '../../lib/pptx-generator';
 import { store } from '../../lib/store';
+import { filterByManager } from '../../lib/perimeter';
 import { Agent } from '../../types';
 
 export const ManagerExportsPage: React.FC = () => {
@@ -18,7 +19,7 @@ export const ManagerExportsPage: React.FC = () => {
 
   useEffect(() => {
     const update = () => {
-      setAgents(store.getAgents());
+      setAgents(filterByManager(store.getAgents()));
     };
     update();
     return store.subscribe(update);
@@ -34,8 +35,8 @@ export const ManagerExportsPage: React.FC = () => {
   };
 
   const handleCompleteExport = () => {
-    const monthlyData = store.getMonthlyResults();
-    const weeklyData = store.getWeeklyPerformances();
+    const monthlyData = filterByManager(store.getMonthlyResults());
+    const weeklyData = filterByManager(store.getWeeklyPerformances());
 
     if (activeExportType === 'excel') {
       exportMonthlyResultsToExcel(monthlyData);

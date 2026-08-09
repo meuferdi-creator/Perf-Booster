@@ -178,6 +178,18 @@ export interface ActionItem {
   progres: number; // 0-100
 }
 
+export interface CoachingRecord {
+  id: string;
+  agent_id: string;
+  agent_name: string;
+  period_type: 'week' | 'month';
+  period_value: string; // e.g. "31" or "2026-07"
+  content: string; // Markdown formatted coaching content
+  updated_at: string;
+  created_by?: string;
+  status?: 'generated' | 'edited' | 'sent';
+}
+
 export interface StoredAuth {
   role: 'agent' | 'manager' | 'admin';
   id: string;

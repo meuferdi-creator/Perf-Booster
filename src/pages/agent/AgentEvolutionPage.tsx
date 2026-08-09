@@ -8,7 +8,7 @@ import { EvolutionChart } from '../../components/agent/EvolutionChart';
 import { store } from '../../lib/store';
 import { getStoredAuth } from '../../lib/auth-helpers';
 import { CanalType, WeeklyPerformance } from '../../types';
-import { formatKpiValue, getTargets, getKpiStatus } from '../../lib/kpi-utils';
+import { formatKpiValue, getTargets, getKpiStatus, calculateAssiduiteFromPerf } from '../../lib/kpi-utils';
 
 export const AgentEvolutionPage: React.FC = () => {
   const auth = getStoredAuth();
@@ -78,6 +78,7 @@ export const AgentEvolutionPage: React.FC = () => {
               { value: 'tr', label: 'TR (Taux de Transfert)' },
               { value: 'ccx', label: 'CCX (Customer Contact Exp.)' },
               { value: 'dmt', label: 'DMT (Durée de traitement)' },
+              { value: 'assiduite', label: 'Assiduité (Taux de Présence)' },
             ]}
           />
         </div>
@@ -105,21 +106,26 @@ export const AgentEvolutionPage: React.FC = () => {
               <TableHead>TR (%)</TableHead>
               <TableHead>CCX (%)</TableHead>
               <TableHead>DMT (s)</TableHead>
+              <TableHead>Assiduité</TableHead>
               <TableHead>Volume</TableHead>
             </TableRow>
           </TableHeader>
           <tbody>
-            {channelPerfs.map((p) => (
-              <TableRow key={p.id}>
-                <TableCell className="font-bold text-[#814BE7]">Semaine {p.semaine}</TableCell>
-                <TableCell>{p.canal}</TableCell>
-                <TableCell>{renderCellWithStatus('rap', p.rap, targets.rap)}</TableCell>
-                <TableCell>{renderCellWithStatus('tr', p.tr, targets.tr)}</TableCell>
-                <TableCell>{renderCellWithStatus('ccx', p.ccx, targets.ccx)}</TableCell>
-                <TableCell>{renderCellWithStatus('dmt', p.dmt, targets.dmt)}</TableCell>
-                <TableCell className="font-semibold">{p.vol ?? '—'}</TableCell>
-              </TableRow>
-            ))}
+            {channelPerfs.map((p) => {
+              const assid = calculateAssiduiteFromPerf(p);
+              return (
+                <TableRow key={p.id}>
+                  <TableCell className="font-bold text-[#814BE7]">Semaine {p.semaine}</TableCell>
+                  <TableCell>{p.canal}</TableCell>
+                  <TableCell>{renderCellWithStatus('rap', p.rap, targets.rap)}</TableCell>
+                  <TableCell>{renderCellWithStatus('tr', p.tr, targets.tr)}</TableCell>
+                  <TableCell>{renderCellWithStatus('ccx', p.ccx, targets.ccx)}</TableCell>
+                  <TableCell>{renderCellWithStatus('dmt', p.dmt, targets.dmt)}</TableCell>
+                  <TableCell>{renderCellWithStatus('assiduite', assid != null ? assid / 100 : null, 0.95)}</TableCell>
+                  <TableCell className="font-semibold">{p.vol ?? '—'}</TableCell>
+                </TableRow>
+              );
+            })}
           </tbody>
         </Table>
       </Card>

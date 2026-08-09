@@ -15,9 +15,13 @@ export const AgentMonthlyPage: React.FC = () => {
     const update = () => {
       const currentAuth = getStoredAuth();
       const all = store.getMonthlyResults();
-      const agentId = currentAuth?.id || 'agent-1163';
-      const myMonth = all.find((m) => m.agent_id === agentId || m.agent_name.includes(currentAuth?.prenom || 'Shalom'));
-      setMonthlyRes(myMonth || all[0]);
+      const agentId = currentAuth?.id;
+      const myMonth = all.find(
+        (m) =>
+          (agentId && m.agent_id === agentId) ||
+          (currentAuth?.matricule && m.matricule_rh === currentAuth.matricule)
+      );
+      setMonthlyRes(myMonth || null);
     };
 
     update();

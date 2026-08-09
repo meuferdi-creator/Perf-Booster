@@ -1,4 +1,4 @@
-import { Agent, Manager, WeeklyPerformance, MonthlyResult, RCA, ActionItem, Notification } from '../types';
+import { Agent, Manager, WeeklyPerformance, MonthlyResult, RCA, ActionItem, Notification, CoachingRecord } from '../types';
 import {
   INITIAL_AGENTS,
   INITIAL_MANAGERS,
@@ -18,6 +18,7 @@ const STORAGE_KEYS = {
   ACTION_ITEMS: 'perf_action_items',
   NOTIFICATIONS: 'perf_notifications',
   SAVED_SIMULATIONS: 'perf_saved_simulations',
+  COACHING_RECORDS: 'perf_coaching_records',
 };
 
 function loadItem<T>(key: string, defaultVal: T): T {
@@ -52,7 +53,19 @@ class PerformanceStore {
 
   // AGENTS
   public getAgents(): Agent[] {
-    return loadItem<Agent[]>(STORAGE_KEYS.AGENTS, INITIAL_AGENTS);
+    const loaded = loadItem<Agent[]>(STORAGE_KEYS.AGENTS, INITIAL_AGENTS);
+    const agentMap = new Map<string, Agent>();
+    for (const a of INITIAL_AGENTS) {
+      agentMap.set(a.id, { ...a });
+    }
+    for (const a of loaded) {
+      if (agentMap.has(a.id)) {
+        agentMap.set(a.id, { ...agentMap.get(a.id)!, ...a });
+      } else {
+        agentMap.set(a.id, a);
+      }
+    }
+    return Array.from(agentMap.values());
   }
 
   public saveAgent(agent: Agent): void {
@@ -75,7 +88,34 @@ class PerformanceStore {
 
   // MANAGERS
   public getManagers(): Manager[] {
-    return loadItem<Manager[]>(STORAGE_KEYS.MANAGERS, INITIAL_MANAGERS);
+    const loaded = loadItem<Manager[]>(STORAGE_KEYS.MANAGERS, INITIAL_MANAGERS);
+    const resultMap = new Map<string, Manager>();
+    for (const m of INITIAL_MANAGERS) {
+      resultMap.set(m.matricule || m.id, { ...m });
+    }
+    for (const m of loaded) {
+      const key = m.matricule || m.id;
+      if (resultMap.has(key)) {
+        resultMap.set(key, { ...resultMap.get(key)!, ...m });
+      } else {
+        resultMap.set(key, m);
+      }
+    }
+    return Array.from(resultMap.values());
+  }
+
+  public saveManager(manager: Manager): void {
+    const managers = this.getManagers();
+    const idx = managers.findIndex(
+      (m) => (m.matricule && m.matricule === manager.matricule) || m.id === manager.id
+    );
+    if (idx >= 0) {
+      managers[idx] = manager;
+    } else {
+      managers.push(manager);
+    }
+    saveItem(STORAGE_KEYS.MANAGERS, managers);
+    this.notify();
   }
 
   // WEEKLY PERFORMANCES
@@ -220,6 +260,38 @@ class PerformanceStore {
   public deleteSimulation(id: string): void {
     const list = this.getSavedSimulations().filter((s) => s.id !== id);
     saveItem(STORAGE_KEYS.SAVED_SIMULATIONS, list);
+    this.notify();
+  }
+
+  // COACHING RECORDS
+  public getCoachingRecords(): CoachingRecord[] {
+    return loadItem<CoachingRecord[]>(STORAGE_KEYS.COACHING_RECORDS, []);
+  }
+
+  public getCoachingRecord(agentId: string, periodType: 'week' | 'month', periodVal: string): CoachingRecord | undefined {
+    const records = this.getCoachingRecords();
+    return records.find(
+      (r) => r.agent_id === agentId && r.period_type === periodType && String(r.period_value) === String(periodVal)
+    );
+  }
+
+  public saveCoachingRecord(record: CoachingRecord): void {
+    const records = this.getCoachingRecords();
+    const idx = records.findIndex((r) => r.id === record.id);
+    if (idx >= 0) records[idx] = record;
+    else records.push(record);
+    saveItem(STORAGE_KEYS.COACHING_RECORDS, records);
+    this.notify();
+  }
+
+  public saveCoachingBatch(batch: CoachingRecord[]): void {
+    const records = this.getCoachingRecords();
+    batch.forEach((rec) => {
+      const idx = records.findIndex((r) => r.id === rec.id);
+      if (idx >= 0) records[idx] = rec;
+      else records.push(rec);
+    });
+    saveItem(STORAGE_KEYS.COACHING_RECORDS, records);
     this.notify();
   }
 

@@ -119,22 +119,33 @@ export const ScreenshotImport: React.FC = () => {
             <h4 className="text-sm font-bold text-slate-900 dark:text-slate-100">Données détectées avec succès</h4>
           </div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs mb-4">
-            <div className="p-2.5 bg-white rounded-xl dark:bg-slate-900">
-              <span className="text-slate-400 block">Agent</span>
+          <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 text-xs mb-4">
+            <div className="p-2.5 bg-white rounded-xl dark:bg-slate-900 border border-slate-100 dark:border-slate-800">
+              <span className="text-slate-400 block text-2xs">Agent</span>
               <span className="font-bold">{extractedData.agent_name}</span>
             </div>
-            <div className="p-2.5 bg-white rounded-xl dark:bg-slate-900">
-              <span className="text-slate-400 block">Canal & Semaine</span>
+            <div className="p-2.5 bg-white rounded-xl dark:bg-slate-900 border border-slate-100 dark:border-slate-800">
+              <span className="text-slate-400 block text-2xs">Canal & Semaine</span>
               <span className="font-bold">{extractedData.canal} - S{extractedData.semaine}</span>
             </div>
-            <div className="p-2.5 bg-white rounded-xl dark:bg-slate-900">
-              <span className="text-slate-400 block">RAP / CCX</span>
+            <div className="p-2.5 bg-white rounded-xl dark:bg-slate-900 border border-slate-100 dark:border-slate-800">
+              <span className="text-slate-400 block text-2xs">RAP / CCX</span>
               <span className="font-bold">{((extractedData.rap || 0) * 100).toFixed(1)}% / {((extractedData.ccx || 0) * 100).toFixed(1)}%</span>
             </div>
-            <div className="p-2.5 bg-white rounded-xl dark:bg-slate-900">
-              <span className="text-slate-400 block">TR / DMT</span>
+            <div className="p-2.5 bg-white rounded-xl dark:bg-slate-900 border border-slate-100 dark:border-slate-800">
+              <span className="text-slate-400 block text-2xs">TR / DMT</span>
               <span className="font-bold">{((extractedData.tr || 0) * 100).toFixed(1)}% / {extractedData.dmt}s</span>
+            </div>
+            <div className="p-2.5 bg-white rounded-xl dark:bg-slate-900 border border-slate-100 dark:border-slate-800">
+              <span className="text-slate-400 block text-2xs">H Plan / Abs → Assiduité</span>
+              <span className="font-bold text-emerald-600">
+                {extractedData.h_planifiees || 40}h / {extractedData.h_absence || 0}h (
+                {(
+                  (((extractedData.h_planifiees || 40) - (extractedData.h_absence || 0)) / (extractedData.h_planifiees || 40)) *
+                  100
+                ).toFixed(1)}
+                %)
+              </span>
             </div>
           </div>
 

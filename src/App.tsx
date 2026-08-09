@@ -1,6 +1,9 @@
 import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 
+// Auth Guard
+import { ProtectedRoute } from './components/auth/ProtectedRoute';
+
 // Public pages
 import { LoginPage } from './pages/LoginPage';
 import { ChangePasswordPage } from './pages/ChangePasswordPage';
@@ -39,32 +42,36 @@ export function App() {
         <Route path="/" element={<LoginPage />} />
         <Route path="/change-password" element={<ChangePasswordPage />} />
 
-        {/* Agent Routes */}
-        <Route path="/agent" element={<AgentLayout />}>
-          <Route index element={<AgentDashboardPage />} />
-          <Route path="evolution" element={<AgentEvolutionPage />} />
-          <Route path="feedbacks" element={<AgentFeedbacksPage />} />
-          <Route path="qa" element={<AgentQaPage />} />
-          <Route path="objectifs" element={<AgentObjectifsPage />} />
-          <Route path="gamification" element={<AgentGamificationPage />} />
-          <Route path="monthly" element={<AgentMonthlyPage />} />
-          <Route path="assistant" element={<AgentAssistantPage />} />
+        {/* Agent Routes - Protected */}
+        <Route element={<ProtectedRoute allowedRoles={['agent']} />}>
+          <Route path="/agent" element={<AgentLayout />}>
+            <Route index element={<AgentDashboardPage />} />
+            <Route path="evolution" element={<AgentEvolutionPage />} />
+            <Route path="feedbacks" element={<AgentFeedbacksPage />} />
+            <Route path="qa" element={<AgentQaPage />} />
+            <Route path="objectifs" element={<AgentObjectifsPage />} />
+            <Route path="gamification" element={<AgentGamificationPage />} />
+            <Route path="monthly" element={<AgentMonthlyPage />} />
+            <Route path="assistant" element={<AgentAssistantPage />} />
+          </Route>
         </Route>
 
-        {/* Manager Routes */}
-        <Route path="/manager" element={<ManagerLayout />}>
-          <Route index element={<ManagerDashboardPage />} />
-          <Route path="agents" element={<ManagerAgentsPage />} />
-          <Route path="import" element={<ManagerImportPage />} />
-          <Route path="rca" element={<ManagerRcaPage />} />
-          <Route path="feedbacks" element={<ManagerFeedbacksPage />} />
-          <Route path="comments" element={<ManagerCommentsPage />} />
-          <Route path="coaching" element={<ManagerCoachingPage />} />
-          <Route path="analytics" element={<ManagerAnalyticsPage />} />
-          <Route path="exports" element={<ManagerExportsPage />} />
-          <Route path="monthly" element={<ManagerMonthlyPage />} />
-          <Route path="simulator" element={<ManagerSimulatorPage />} />
-          <Route path="results" element={<ManagerResultsPage />} />
+        {/* Manager Routes - Protected */}
+        <Route element={<ProtectedRoute allowedRoles={['manager', 'admin']} />}>
+          <Route path="/manager" element={<ManagerLayout />}>
+            <Route index element={<ManagerDashboardPage />} />
+            <Route path="agents" element={<ManagerAgentsPage />} />
+            <Route path="import" element={<ManagerImportPage />} />
+            <Route path="rca" element={<ManagerRcaPage />} />
+            <Route path="feedbacks" element={<ManagerFeedbacksPage />} />
+            <Route path="comments" element={<ManagerCommentsPage />} />
+            <Route path="coaching" element={<ManagerCoachingPage />} />
+            <Route path="analytics" element={<ManagerAnalyticsPage />} />
+            <Route path="exports" element={<ManagerExportsPage />} />
+            <Route path="monthly" element={<ManagerMonthlyPage />} />
+            <Route path="simulator" element={<ManagerSimulatorPage />} />
+            <Route path="results" element={<ManagerResultsPage />} />
+          </Route>
         </Route>
 
         {/* Fallback */}

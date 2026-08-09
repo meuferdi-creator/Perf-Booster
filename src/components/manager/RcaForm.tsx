@@ -69,6 +69,7 @@ export const RcaForm: React.FC<RcaFormProps> = ({ isOpen, onClose, agents }) => 
               { value: 'TR', label: 'TR (Taux de Transfert)' },
               { value: 'CCX', label: 'CCX (Experience client)' },
               { value: 'DMT', label: 'DMT (Durée de traitement)' },
+              { value: 'Assiduité', label: 'Assiduité (Taux de Présence)' },
             ]}
           />
         </div>

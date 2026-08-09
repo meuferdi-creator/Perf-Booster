@@ -6,6 +6,7 @@ import { RcaCard } from '../../components/manager/RcaCard';
 import { RcaForm } from '../../components/manager/RcaForm';
 import { store } from '../../lib/store';
 import { getStoredAuth } from '../../lib/auth-helpers';
+import { filterByManager } from '../../lib/perimeter';
 import { Agent, ActionItem, RCA } from '../../types';
 
 export const ManagerRcaPage: React.FC = () => {
@@ -21,9 +22,12 @@ export const ManagerRcaPage: React.FC = () => {
       const allActions = store.getActionItems();
       const allAgents = store.getAgents();
 
-      setRcas(allRcas);
-      setActionItems(allActions);
-      setAgents(allAgents);
+      const myAgents = filterByManager(allAgents);
+      const myAgentIds = new Set(myAgents.map((a) => a.id));
+
+      setAgents(myAgents);
+      setRcas(allRcas.filter((r) => myAgentIds.has(r.agent_id)));
+      setActionItems(allActions.filter((a) => myAgentIds.has(a.agent_id)));
     };
 
     update();
