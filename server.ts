@@ -156,6 +156,7 @@ app.post('/api/auth/login', (req, res) => {
       { id: 'agent-799', matricule_rh: '799', nom_complet: 'HOUEDJAGBAGBA Komlan Mawuko Clément', prenom: 'Clément', manager_name: 'SABI Prospere', log_activite: 'lom_gbagba', email: 'gbagba.c@amazon-support.com', anciennete: '+ 3 mois' },
       { id: 'agent-2168', matricule_rh: '2168', nom_complet: 'LAWSON Sibi Lolita', prenom: 'Lolita', manager_name: 'SABI Prospere', log_activite: 'lom_sibita', email: 'lolita.l@amazon-support.com', anciennete: '+ 3 mois' },
       { id: 'agent-551', matricule_rh: '551', nom_complet: 'TATRA Aman Emefa', prenom: 'Emefa', manager_name: 'SABI Prospere', log_activite: 'lom_amane', email: 'emefa.t@amazon-support.com', anciennete: '+ 3 mois' },
+      { id: 'agent-1814', matricule_rh: '1814', nom_complet: 'Agent 1814', prenom: 'Agent', manager_name: 'SABI Prospere', log_activite: 'lom_1814', email: 'agent1814@amazon-support.com', anciennete: '+ 3 mois' },
     ];
 
     const matchedAgent = knownAgents.find((a) => {
