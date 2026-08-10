@@ -47,16 +47,54 @@ export function matchesManagerScope(
   return false;
 }
 
-export function filterByManager<T extends { manager_name?: string }>(
+export function isDummyOrSupportAgent(
+  agentName?: string | null,
+  matricule?: string | null,
+  logActivite?: string | null
+): boolean {
+  const cleanName = (agentName || '').trim().toLowerCase();
+  const cleanMat = (matricule || '').trim().toLowerCase();
+  const cleanLog = (logActivite || '').trim().toLowerCase();
+
+  if (!cleanName && !cleanMat && !cleanLog) return true;
+
+  if (
+    cleanName === '' ||
+    cleanName === 'null' ||
+    cleanName === 'undefined' ||
+    cleanName === 'non assigné' ||
+    cleanName === 'non assigne' ||
+    cleanName === 'support agent' ||
+    cleanName === 'agent support' ||
+    cleanName.includes('placeholder') ||
+    cleanName.includes('moi test') ||
+    cleanName === 'test'
+  ) {
+    return true;
+  }
+
+  if (cleanMat === '1000' && (cleanName.includes('support') || cleanName === '')) return true;
+  if (cleanLog === 'log' || cleanLog === 'agent' || cleanLog === 'support agent') return true;
+
+  return false;
+}
+
+export function filterByManager<T extends { manager_name?: string; agent_name?: string; nom_complet?: string; matricule_rh?: string; log_activite?: string }>(
   items: T[],
   managerName: string | null = getManagerNameScope()
 ): T[] {
   const auth = getStoredAuth();
   if (!auth) return [];
+
+  const cleanItems = (items || []).filter((item) => {
+    const name = item.agent_name || item.nom_complet;
+    return !isDummyOrSupportAgent(name, item.matricule_rh, item.log_activite);
+  });
+
   if (auth.isGlobalAdmin || auth.matricule === '495' || (auth.name && auth.name.includes('SABI'))) {
-    return items || [];
+    return cleanItems;
   }
-  return (items || []).filter((i) => matchesManagerScope(i?.manager_name, auth));
+  return cleanItems.filter((i) => matchesManagerScope(i?.manager_name, auth));
 }
 
 export function filterAgentsByManager<T extends { manager_name?: string }>(

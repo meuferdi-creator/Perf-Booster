@@ -7,7 +7,7 @@ import { Table, TableHeader, TableRow, TableHead, TableCell } from '../../compon
 import { Badge } from '../../components/ui/Badge';
 import { store } from '../../lib/store';
 import { getStoredAuth } from '../../lib/auth-helpers';
-import { filterByManager } from '../../lib/perimeter';
+import { filterByManager, isDummyOrSupportAgent } from '../../lib/perimeter';
 import { MonthlyResult } from '../../types';
 import { formatFCFA } from '../../lib/kpi-utils';
 
@@ -38,30 +38,41 @@ export const ManagerMonthlyPage: React.FC = () => {
         const ws = wb.Sheets[wsname];
         const data: any[] = XLSX.utils.sheet_to_json(ws);
 
-        const newResults: MonthlyResult[] = data.map((row, idx) => ({
-          id: `mres-imp-${Date.now()}-${idx}`,
-          mois_key: '2026-07',
-          mois_annee: '2026-07',
-          mois_label: 'Juillet 2026',
-          annee: 2026,
-          numero_mois: 7,
-          agent_id: row['agent_id'] || `agent-${idx}`,
-          agent_name: row['Agent'] || row['Nom'] || 'Agent Support',
-          matricule_rh: row['Matricule'] || '1000',
-          manager_name: auth?.manager_name || 'SABI Prospere',
-          anciennete: row['Ancienneté'] || '+ 3 mois',
-          vol_total: Number(row['Volume'] || 500),
-          poids_phone: Number(row['Poids Phone'] || 60),
-          poids_email: Number(row['Poids Email'] || 25),
-          poids_mu: Number(row['Poids MU'] || 15),
-          contrib_phone: Number(row['Contrib Phone'] || 15000),
-          contrib_email: Number(row['Contrib Email'] || 5000),
-          contrib_mu: Number(row['Contrib MU'] || 3000),
-          pv_sans_presence: Number(row['PV Brute'] || 23000),
-          presence: Number(row['Présence (%)'] || 100),
-          pv_finale: Number(row['PV Finale'] || 23000),
-          statut: row['Statut'] || 'En progression',
-        }));
+        const newResults: MonthlyResult[] = data
+          .filter((row) => {
+            const agentName = row['Agent'] || row['Nom'] || row['agent_name'] || '';
+            const mat = row['Matricule'] || row['matricule_rh'] || '';
+            return !isDummyOrSupportAgent(agentName, mat, null);
+          })
+          .map((row, idx) => {
+            const agentName = row['Agent'] || row['Nom'] || row['agent_name'] || '';
+            const mat = row['Matricule'] || row['matricule_rh'] || '';
+            const matKey = mat || `imp-${idx}`;
+            return {
+              id: `mres-imp-${matKey}-202607`,
+              mois_key: '2026-07',
+              mois_annee: '2026-07',
+              mois_label: 'Juillet 2026',
+              annee: 2026,
+              numero_mois: 7,
+              agent_id: row['agent_id'] || `agent-${matKey}`,
+              agent_name: agentName,
+              matricule_rh: mat,
+              manager_name: auth?.manager_name || 'SABI Prospere',
+              anciennete: row['Ancienneté'] || '+ 3 mois',
+              vol_total: Number(row['Volume'] || row['vol_total'] || 0),
+              poids_phone: Number(row['Poids Phone'] || 0),
+              poids_email: Number(row['Poids Email'] || 0),
+              poids_mu: Number(row['Poids MU'] || 0),
+              contrib_phone: Number(row['Contrib Phone'] || 0),
+              contrib_email: Number(row['Contrib Email'] || 0),
+              contrib_mu: Number(row['Contrib MU'] || 0),
+              pv_sans_presence: Number(row['PV Brute'] || row['pv_sans_presence'] || 0),
+              presence: Number(row['Présence (%)'] || row['presence'] || 100),
+              pv_finale: Number(row['PV Finale'] || row['pv_finale'] || 0),
+              statut: row['Statut'] || 'En progression',
+            };
+          });
 
         store.saveMonthlyResultsBatch(newResults);
         alert(`${newResults.length} résultats mensuels importés avec succès !`);

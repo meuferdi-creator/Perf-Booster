@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Upload, FileSpreadsheet, Camera, CheckCircle2, AlertTriangle, Info, RefreshCw, FileText, Check } from 'lucide-react';
+import { Upload, FileSpreadsheet, Camera, CheckCircle2, AlertTriangle, Info, RefreshCw, FileText, Check, Download } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { Card } from '../../components/ui/Card';
 import { Tabs } from '../../components/ui/Tabs';
@@ -9,7 +9,9 @@ import { ScreenshotImport } from '../../components/manager/ScreenshotImport';
 import { store } from '../../lib/store';
 import { getStoredAuth } from '../../lib/auth-helpers';
 import { WeeklyPerformance, CanalType } from '../../types';
-import { formatKpiValue, calculateAssiduiteFromPerf } from '../../lib/kpi-utils';
+import { isDummyOrSupportAgent } from '../../lib/perimeter';
+import { download14ColMatrixTemplate } from '../../lib/excel-generator';
+import { formatKpiValue } from '../../lib/kpi-utils';
 
 function normalizeKey(str: string): string {
   if (!str) return '';
@@ -21,6 +23,7 @@ function normalizeKey(str: string): string {
 }
 
 function findRawValue(row: any, ...aliasLists: string[]): { val: any; matchedKey?: string } {
+  if (!row) return { val: undefined };
   const keys = Object.keys(row);
   for (const alias of aliasLists) {
     const normAlias = normalizeKey(alias);
@@ -206,11 +209,24 @@ export const ManagerImportPage: React.FC = () => {
   const handleConfirmImport = () => {
     if (rawFileRows.length === 0) return;
 
-    const batch: WeeklyPerformance[] = rawFileRows.map((row: any, idx: number) => {
-      const rawAgent = findRawValue(row, 'logactivite', 'log', 'agent', 'nom', 'matricule', 'conseiller').val || '';
-      const cleanAgentStr = String(rawAgent).trim();
+    const validRows = rawFileRows.filter((row: any) => {
+      const rawLog = findRawValue(row, 'logactivite', 'log', 'agent', 'nom', 'matricule', 'conseiller').val || row[0] || '';
+      const cleanLogStr = String(rawLog).trim();
+      return cleanLogStr.length > 0 && !isDummyOrSupportAgent(cleanLogStr, null, cleanLogStr);
+    });
 
-      // Find matching agent object if exists
+    if (validRows.length === 0) {
+      setFeedback({
+        type: 'error',
+        message: 'Aucune donnée valide trouvée dans le fichier (lignes vides ou agents de support ignorés).',
+      });
+      return;
+    }
+
+    const batch: WeeklyPerformance[] = validRows.map((row: any, idx: number) => {
+      const rawLog = findRawValue(row, 'logactivite', 'log', 'agent', 'nom', 'matricule', 'conseiller').val || row[0] || '';
+      const cleanAgentStr = String(rawLog).trim();
+
       const matchedAgent = existingAgents.find(
         (a) =>
           a.log_activite.toLowerCase() === cleanAgentStr.toLowerCase() ||
@@ -219,45 +235,54 @@ export const ManagerImportPage: React.FC = () => {
       );
 
       const agentId = matchedAgent ? matchedAgent.id : `agent-imp-${idx}`;
-      const agentName = matchedAgent ? matchedAgent.nom_complet : cleanAgentStr || 'Agent Support';
-      const logActivite = matchedAgent ? matchedAgent.log_activite : cleanAgentStr || `lom_agent${idx}`;
-
-      const rawCanal = findRawValue(row, 'canal', 'channel', 'media').val;
-      let canal: CanalType = 'Phone';
-      if (rawCanal) {
-        const cStr = String(rawCanal).toLowerCase();
-        if (cStr.includes('email') || cStr.includes('mail')) canal = 'Email';
-        else if (cStr.includes('mu') || cStr.includes('chat') || cStr.includes('multicanal')) canal = 'MU';
-      }
+      const agentName = matchedAgent ? matchedAgent.nom_complet : cleanAgentStr;
+      const logActivite = matchedAgent ? matchedAgent.log_activite : cleanAgentStr;
 
       const semVal = findRawValue(row, 'semaine', 'sem').val;
       const semaine = semVal ? Number(semVal) : selectedSemaine;
 
-      // Find existing perf record to preserve optional values if omitted
       const existingRecord = existingPerfs.find(
-        (p) => p.semaine === semaine && p.canal === canal && (p.agent_id === agentId || p.log_activite === logActivite)
+        (p) => p.semaine === semaine && p.canal === 'Phone' && (p.agent_id === agentId || p.log_activite === logActivite)
       );
 
-      // Parse Metrics
-      const rawRap = findRawValue(row, 'rap', 'resolution', '1ercontact').val;
+      // Strict 14 Columns Parsing
+      const rawYes = findRawValue(row, 'yes').val ?? row[1];
+      const yes = parseNum(rawYes);
+
+      const rawNo = findRawValue(row, 'no').val ?? row[2];
+      const no = parseNum(rawNo);
+
+      const rawRap = findRawValue(row, 'rap', 'resolution', '1ercontact').val ?? row[3];
       const rap = parsePct(rawRap) ?? existingRecord?.rap ?? 0.85;
 
-      const rawTr = findRawValue(row, 'tr', 'tauxdetransfert', 'transfert').val;
-      const tr = parsePct(rawTr) ?? existingRecord?.tr ?? 0.15;
+      const rawYesCumul = findRawValue(row, 'yescumulmois', 'yes cumul mois').val ?? row[4];
+      const yes_cumul_mois = parseNum(rawYesCumul);
 
-      const rawCcx = findRawValue(row, 'ccx', 'customercontact', 'experienceclient').val;
+      const rawNoCumul = findRawValue(row, 'nocumulmois', 'no cumul mois').val ?? row[5];
+      const no_cumul_mois = parseNum(rawNoCumul);
+
+      const rawRapMois = findRawValue(row, 'rapmois', 'rap mois').val ?? row[6];
+      const rap_mois = parsePct(rawRapMois);
+
+      const rawBesoinOui = findRawValue(row, 'besoinoui', 'besoin en oui').val ?? row[7];
+      const besoin_oui = parseNum(rawBesoinOui) ?? 0;
+
+      const rawCcx = findRawValue(row, 'ccx', 'customercontact').val ?? row[8];
       const ccx = parsePct(rawCcx) ?? existingRecord?.ccx ?? 0.92;
 
-      const rawDmt = findRawValue(row, 'dmt', 'duree', 'dureedetraitement').val;
+      const rawTr = findRawValue(row, 'tr', 'tauxdetransfert', 'transfert').val ?? row[9];
+      const tr = parsePct(rawTr) ?? existingRecord?.tr ?? 0.15;
+
+      const rawDmt = findRawValue(row, 'dmtmois', 'dmt mois', 'dmt').val ?? row[10];
       const dmt = parseDmt(rawDmt) ?? existingRecord?.dmt ?? 600;
 
-      const rawVol = findRawValue(row, 'volume', 'vol', 'quantite').val;
+      const rawVol = findRawValue(row, 'volphone', 'vol phone', 'volume', 'vol').val ?? row[11];
       const vol = parseNum(rawVol) ?? existingRecord?.vol ?? 150;
 
-      const rawHPlan = findRawValue(row, 'hplanifiees', 'heuresplanifiees', 'hplan', 'planifiees').val;
+      const rawHPlan = findRawValue(row, 'hplanifiees', 'h planifiees', 'heuresplanifiees').val ?? row[12];
       const h_planifiees = parseNum(rawHPlan) ?? existingRecord?.h_planifiees ?? 40;
 
-      const rawHAbs = findRawValue(row, 'habsence', 'heuresabsence', 'absence', 'habs').val;
+      const rawHAbs = findRawValue(row, 'habsence', 'h absence', 'heuresabsence').val ?? row[13];
       const h_absence = parseNum(rawHAbs) ?? existingRecord?.h_absence ?? 0;
 
       return {
@@ -266,12 +291,18 @@ export const ManagerImportPage: React.FC = () => {
         agent_name: agentName,
         log_activite: logActivite,
         manager_name: auth?.manager_name || matchedAgent?.manager_name || 'SABI Prospere',
-        canal,
+        canal: 'Phone' as CanalType,
         semaine,
         annee: 2026,
+        yes,
+        no,
         rap,
-        tr,
+        yes_cumul_mois,
+        no_cumul_mois,
+        rap_mois,
+        besoin_oui,
         ccx,
+        tr,
         dmt,
         vol,
         h_planifiees,
@@ -283,7 +314,7 @@ export const ManagerImportPage: React.FC = () => {
 
     setFeedback({
       type: 'success',
-      message: `${batch.length} enregistrement(s) de performance hebdomadaire pour la Semaine ${selectedSemaine} ont été importé(s) et calculé(s) avec succès !`,
+      message: `${batch.length} enregistrement(s) de performance (structure 14 colonnes) pour la Semaine ${selectedSemaine} ont été importé(s) et calculé(s) avec succès !`,
     });
 
     setRawFileRows([]);
@@ -293,11 +324,21 @@ export const ManagerImportPage: React.FC = () => {
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto">
-      <div>
-        <h1 className="text-2xl font-black text-slate-900 dark:text-slate-100">Importation Hebdomadaire (Import Hebdo)</h1>
-        <p className="text-xs text-slate-500 mt-0.5">
-          Téléversez les fichiers de performance (Excel/CSV) ou captures d'écran OCR. L'assiduité et les primes sont automatiquement recalculées.
-        </p>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-black text-slate-900 dark:text-slate-100">Importation Hebdomadaire (Import Hebdo)</h1>
+          <p className="text-xs text-slate-500 mt-0.5">
+            Téléversez les fichiers de performance (Excel/CSV) selon la structure stricte à 14 colonnes.
+          </p>
+        </div>
+        <Button
+          onClick={() => download14ColMatrixTemplate()}
+          variant="outline"
+          className="text-xs font-semibold flex items-center gap-2 self-start sm:self-auto shrink-0 border-[#814BE7]/30 text-[#814BE7] hover:bg-[#814BE7]/10"
+        >
+          <Download className="w-4 h-4 text-[#814BE7]" />
+          <span>Modèle 14 Colonnes (.xlsx)</span>
+        </Button>
       </div>
 
       <Tabs

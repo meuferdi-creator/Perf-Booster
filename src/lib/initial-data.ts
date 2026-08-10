@@ -447,6 +447,26 @@ export const INITIAL_AGENTS: Agent[] = [
     niveau: 1,
     badges: [],
   },
+  {
+    id: 'agent-1814',
+    matricule_rh: '1814',
+    nom_complet: 'KOSSI K. Agent 1814',
+    nom: 'KOSSI',
+    prenom: 'Agent 1814',
+    manager_name: 'SABI Prospere',
+    date_mep: '15/01/2024',
+    contrat: 'CDD',
+    statut_contrat: 'CDD',
+    anciennete: '+ 3 mois',
+    log_activite: 'lom_1814',
+    premier_login: true,
+    statut: 'actif',
+    email: 'kossi.1814@amazon-support.com',
+    role: 'agent',
+    xp: 250,
+    niveau: 1,
+    badges: [],
+  },
 ];
 
 export const INITIAL_WEEKLY_PERFORMANCES: WeeklyPerformance[] = [

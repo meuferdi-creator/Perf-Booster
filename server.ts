@@ -1,18 +1,84 @@
 import express from 'express';
 import path from 'path';
+import fs from 'fs';
+import crypto from 'crypto';
 import { fileURLToPath } from 'url';
 import { GoogleGenAI } from '@google/genai';
 import dotenv from 'dotenv';
 
 dotenv.config();
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+// Safe ESM / CJS resolution
+const __filenameSafe = typeof __filename !== 'undefined' ? __filename : process.cwd();
+const __dirnameSafe = typeof __dirname !== 'undefined' ? __dirname : path.dirname(__filenameSafe);
+
+const PASSWORDS_FILE = path.join(process.cwd(), '.passwords_db.json');
+
+function loadPersistedPasswords(): Record<string, string> {
+  try {
+    if (fs.existsSync(PASSWORDS_FILE)) {
+      return JSON.parse(fs.readFileSync(PASSWORDS_FILE, 'utf-8'));
+    }
+  } catch (err) {
+    console.error('Error loading persisted passwords:', err);
+  }
+  return {};
+}
+
+function savePersistedPassword(userIdOrMatricule: string, newPass: string) {
+  try {
+    const db = loadPersistedPasswords();
+    db[userIdOrMatricule.toLowerCase()] = newPass;
+    fs.writeFileSync(PASSWORDS_FILE, JSON.stringify(db, null, 2), 'utf-8');
+  } catch (err) {
+    console.error('Error saving persisted password:', err);
+  }
+}
 
 const app = express();
 const PORT = 3000;
 
+// Security Hardening Middleware
+app.disable('x-powered-by');
+
+app.use((_req, res, next) => {
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'SAMEORIGIN');
+  res.setHeader('X-XSS-Protection', '1; mode=block');
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+  if (process.env.NODE_ENV === 'production') {
+    res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
+  }
+  next();
+});
+
 app.use(express.json({ limit: '10mb' }));
+
+// API Rate Limiting Middleware for AI Endpoints
+const AI_RATE_LIMITS: Record<string, { count: number; resetAt: number }> = {};
+
+function rateLimitAiEndpoint(maxRequests = 20, windowMs = 60 * 1000) {
+  return (req: express.Request, res: express.Response, next: express.NextFunction) => {
+    const ip = req.ip || req.socket.remoteAddress || 'unknown';
+    const now = Date.now();
+    const userLimit = AI_RATE_LIMITS[ip] || { count: 0, resetAt: now + windowMs };
+
+    if (now > userLimit.resetAt) {
+      userLimit.count = 0;
+      userLimit.resetAt = now + windowMs;
+    }
+
+    userLimit.count += 1;
+    AI_RATE_LIMITS[ip] = userLimit;
+
+    if (userLimit.count > maxRequests) {
+      return res.status(429).json({
+        error: 'Trop de requêtes vers l\'assistant IA. Veuillez patienter un instant.',
+      });
+    }
+    next();
+  };
+}
 
 // Lazy Google GenAI initializer
 function getGenAI() {
@@ -90,11 +156,13 @@ app.post('/api/auth/login', (req, res) => {
 
   if (role === 'manager' || role === 'admin') {
     let matchedManager: typeof SERVER_MANAGERS[0] | undefined = undefined;
+    const db = loadPersistedPasswords();
 
     if (idLower === 'manager') {
       // "Manager" generic username: match deterministically by exact password
       matchedManager = SERVER_MANAGERS.find((m) => {
-        const expectedPass = m.password || ('TP' + m.matricule);
+        const customPass = db[m.id.toLowerCase()] || db[(m.matricule || '').toLowerCase()];
+        const expectedPass = customPass || m.password || ('TP' + m.matricule);
         return cleanPass === expectedPass;
       });
     } else {
@@ -114,7 +182,8 @@ app.post('/api/auth/login', (req, res) => {
 
         if (!isIdMatch) return false;
 
-        const expectedPass = m.password || ('TP' + m.matricule);
+        const customPass = db[m.id.toLowerCase()] || db[mMat];
+        const expectedPass = customPass || m.password || ('TP' + m.matricule);
         return cleanPass === expectedPass;
       });
     }
@@ -138,7 +207,7 @@ app.post('/api/auth/login', (req, res) => {
       premier_login: Boolean(matchedManager.premier_login),
     };
 
-    const sessionToken = 'sess_' + Math.random().toString(36).substring(2) + Date.now().toString(36);
+    const sessionToken = 'sess_' + crypto.randomBytes(32).toString('hex');
 
     return res.json({
       success: true,
@@ -147,40 +216,93 @@ app.post('/api/auth/login', (req, res) => {
     });
   } else {
     // Agent Authentication
-    // Identifier must match matricule, log_activite, or email
-    const knownAgents = [
-      { id: 'agent-1163', matricule_rh: '1163', nom_complet: 'TATOUNOU Shalom', prenom: 'Shalom', manager_name: 'SABI Prospere', log_activite: 'lom_tatounou', email: 'tatounou.s@amazon-support.com', anciennete: '+ 3 mois' },
-      { id: 'agent-2347', matricule_rh: '2347', nom_complet: 'AZANLEDJI Kokou Boniface', prenom: 'Kokou Boniface', manager_name: 'SABI Prospere', log_activite: 'lom_boniface', email: 'boniface.a@amazon-support.com', anciennete: '+ 3 mois' },
-      { id: 'agent-2177', matricule_rh: '2177', nom_complet: 'GANKUI Marie-josé', prenom: 'Marie-josé', manager_name: 'SABI Prospere', log_activite: 'lom_marijo', email: 'marijo.g@amazon-support.com', anciennete: '+ 3 mois' },
-      { id: 'agent-2178', matricule_rh: '2178', nom_complet: 'KIDIKOUNE Emma', prenom: 'Emma', manager_name: 'SABI Prospere', log_activite: 'lom_emma', email: 'emma.k@amazon-support.com', anciennete: '+ 3 mois' },
-      { id: 'agent-799', matricule_rh: '799', nom_complet: 'HOUEDJAGBAGBA Komlan Mawuko Clément', prenom: 'Clément', manager_name: 'SABI Prospere', log_activite: 'lom_gbagba', email: 'gbagba.c@amazon-support.com', anciennete: '+ 3 mois' },
-      { id: 'agent-2168', matricule_rh: '2168', nom_complet: 'LAWSON Sibi Lolita', prenom: 'Lolita', manager_name: 'SABI Prospere', log_activite: 'lom_sibita', email: 'lolita.l@amazon-support.com', anciennete: '+ 3 mois' },
-      { id: 'agent-551', matricule_rh: '551', nom_complet: 'TATRA Aman Emefa', prenom: 'Emefa', manager_name: 'SABI Prospere', log_activite: 'lom_amane', email: 'emefa.t@amazon-support.com', anciennete: '+ 3 mois' },
-      { id: 'agent-1814', matricule_rh: '1814', nom_complet: 'Agent 1814', prenom: 'Agent', manager_name: 'SABI Prospere', log_activite: 'lom_1814', email: 'agent1814@amazon-support.com', anciennete: '+ 3 mois' },
+    const initialKnownAgents = [
+      { id: 'agent-1163', matricule_rh: '1163', nom_complet: 'TATOUNOU Shalom', prenom: 'Shalom', manager_name: 'SABI Prospere', log_activite: 'lom_tatounou', email: 'tatounou.s@amazon-support.com', premier_login: false, anciennete: '+ 3 mois', statut: 'actif' },
+      { id: 'agent-2347', matricule_rh: '2347', nom_complet: 'AZANLEDJI Kokou Boniface', prenom: 'Kokou Boniface', manager_name: 'SABI Prospere', log_activite: 'lom_boniface', email: 'boniface.a@amazon-support.com', premier_login: true, anciennete: '+ 3 mois', statut: 'actif' },
+      { id: 'agent-2177', matricule_rh: '2177', nom_complet: 'GANKUI Marie-josé', prenom: 'Marie-josé', manager_name: 'SABI Prospere', log_activite: 'lom_marijo', email: 'marijo.g@amazon-support.com', premier_login: true, anciennete: '+ 3 mois', statut: 'actif' },
+      { id: 'agent-2178', matricule_rh: '2178', nom_complet: 'KIDIKOUNE Emma', prenom: 'Emma', manager_name: 'SABI Prospere', log_activite: 'lom_emma', email: 'emma.k@amazon-support.com', premier_login: true, anciennete: '+ 3 mois', statut: 'actif' },
+      { id: 'agent-799', matricule_rh: '799', nom_complet: 'HOUEDJAGBAGBA Komlan Mawuko Clément', prenom: 'Clément', manager_name: 'SABI Prospere', log_activite: 'lom_gbagba', email: 'gbagba.c@amazon-support.com', premier_login: true, anciennete: '+ 3 mois', statut: 'actif' },
+      { id: 'agent-2168', matricule_rh: '2168', nom_complet: 'LAWSON Sibi Lolita', prenom: 'Lolita', manager_name: 'SABI Prospere', log_activite: 'lom_sibita', email: 'lolita.l@amazon-support.com', premier_login: true, anciennete: '+ 3 mois', statut: 'actif' },
+      { id: 'agent-551', matricule_rh: '551', nom_complet: 'TATRA Aman Emefa', prenom: 'Emefa', manager_name: 'SABI Prospere', log_activite: 'lom_amane', email: 'emefa.t@amazon-support.com', premier_login: true, anciennete: '+ 3 mois', statut: 'actif' },
+      { id: 'agent-1132', matricule_rh: '1132', nom_complet: 'NTSUYIBOE Joanita', prenom: 'Joanita', manager_name: 'SABI Prospere', log_activite: 'lom_joanita', email: 'joanita.n@amazon-support.com', premier_login: true, anciennete: '+ 3 mois', statut: 'actif' },
+      { id: 'agent-1779', matricule_rh: '1779', nom_complet: 'AHADJI Akouavi Essenam', prenom: 'Akouavi Essenam', manager_name: 'SABI Prospere', log_activite: 'lom_esenam', email: 'essenam.a@amazon-support.com', premier_login: true, anciennete: '+ 3 mois', statut: 'actif' },
+      { id: 'agent-1752', matricule_rh: '1752', nom_complet: 'NYAVOR Koukou There', prenom: 'Koukou There', manager_name: 'SABI Prospere', log_activite: 'lom_there', email: 'there.n@amazon-support.com', premier_login: true, anciennete: '+ 3 mois', statut: 'actif' },
+      { id: 'agent-1863', matricule_rh: '1863', nom_complet: 'YAKE Calice Bidema', prenom: 'Calice Bidema', manager_name: 'SABI Prospere', log_activite: 'lom_calice', email: 'calice.y@amazon-support.com', premier_login: true, anciennete: '+ 3 mois', statut: 'actif' },
+      { id: 'agent-1892', matricule_rh: '1892', nom_complet: 'OLOUDE Tony-Mike', prenom: 'Tony-Mike', manager_name: 'SABI Prospere', log_activite: 'lom_mike', email: 'mike.o@amazon-support.com', premier_login: true, anciennete: '+ 3 mois', statut: 'actif' },
+      { id: 'agent-1905', matricule_rh: '1905', nom_complet: 'MIHAMI Koffi Philippe', prenom: 'Koffi Philippe', manager_name: 'SABI Prospere', log_activite: 'lom_philippe', email: 'philippe.m@amazon-support.com', premier_login: true, anciennete: '+ 3 mois', statut: 'actif' },
+      { id: 'agent-517', matricule_rh: '517', nom_complet: 'DOSSEH Yawa Sandrine', prenom: 'Yawa Sandrine', manager_name: 'SABI Prospere', log_activite: 'lom_yawad', email: 'sandrine.d@amazon-support.com', premier_login: true, anciennete: '+ 3 mois', statut: 'actif' },
+      { id: 'agent-1032', matricule_rh: '1032', nom_complet: 'GBOGBO Aba Yawa Abigaïl Gloria', prenom: 'Aba Yawa Abigaïl Gloria', manager_name: 'SABI Prospere', log_activite: 'lom_gbogbo', email: 'gloria.g@amazon-support.com', premier_login: true, anciennete: '+ 3 mois', statut: 'actif' },
+      { id: 'agent-3000', matricule_rh: '3000', nom_complet: 'MOI Test', prenom: 'Test', manager_name: 'SABI Prospere', log_activite: 'lom_moi', email: 'test.m@amazon-support.com', premier_login: true, anciennete: '- 3 mois', statut: 'actif' },
+      { id: 'agent-2210', matricule_rh: '2210', nom_complet: 'ADIKPETO Marc-Aurel', prenom: 'Marc-Aurel', manager_name: 'SABI Prospere', log_activite: 'lom_aurel', email: 'aurel.a@amazon-support.com', premier_login: true, anciennete: '+ 3 mois', statut: 'actif' },
+      { id: 'agent-2211', matricule_rh: '2211', nom_complet: 'KOUASSI Afi Brigitte', prenom: 'Afi Brigitte', manager_name: 'SABI Prospere', log_activite: 'lom_brigitte', email: 'brigitte.k@amazon-support.com', premier_login: true, anciennete: '+ 3 mois', statut: 'actif' },
+      { id: 'agent-2212', matricule_rh: '2212', nom_complet: 'DOGBE Mensah Serge', prenom: 'Mensah Serge', manager_name: 'SABI Prospere', log_activite: 'lom_serge', email: 'serge.d@amazon-support.com', premier_login: true, anciennete: '+ 3 mois', statut: 'actif' },
+      { id: 'agent-2213', matricule_rh: '2213', nom_complet: 'ATSU Akossiwa Estelle', prenom: 'Akossiwa Estelle', manager_name: 'SABI Prospere', log_activite: 'lom_estelle', email: 'estelle.a@amazon-support.com', premier_login: true, anciennete: '+ 3 mois', statut: 'actif' },
+      { id: 'agent-1814', matricule_rh: '1814', nom_complet: 'KOSSI K. Agent 1814', prenom: 'Agent 1814', manager_name: 'SABI Prospere', log_activite: 'lom_1814', email: 'kossi.1814@amazon-support.com', premier_login: true, anciennete: '+ 3 mois', statut: 'actif' },
     ];
 
-    const matchedAgent = knownAgents.find((a) => {
-      const aMat = a.matricule_rh.toLowerCase();
-      const aLog = a.log_activite.toLowerCase();
-      const aEmail = (a.email || '').toLowerCase();
+    const clientAgentsList = Array.isArray(req.body?.clientAgents) ? req.body.clientAgents : [];
+    const agentMap = new Map<string, any>();
+    for (const a of initialKnownAgents) {
+      if (a && a.matricule_rh) {
+        agentMap.set((a.matricule_rh || '').toLowerCase(), a);
+      }
+    }
+    for (const ca of clientAgentsList) {
+      if (ca && (ca.matricule_rh || ca.id)) {
+        const key = (ca.matricule_rh || ca.id || '').toLowerCase();
+        const existing = agentMap.get(key) || {};
+        agentMap.set(key, { ...existing, ...ca });
+      }
+    }
+    const knownAgents = Array.from(agentMap.values());
 
-      return aMat === idLower || aLog === idLower || aEmail === idLower;
+    const matchedAgent = knownAgents.find((a) => {
+      const aMat = (a.matricule_rh || '').toLowerCase();
+      const aLog = (a.log_activite || '').toLowerCase();
+      const aEmail = (a.email || '').toLowerCase();
+      const aId = (a.id || '').toLowerCase();
+      const aName = (a.nom_complet || '').toLowerCase();
+
+      return (
+        aMat === idLower ||
+        aLog === idLower ||
+        aEmail === idLower ||
+        aId === idLower ||
+        aName === idLower ||
+        ('tp' + aMat) === idLower
+      );
     });
 
     if (!matchedAgent) {
+      console.log(`[SECURITY LOG] AUTH_USER_NOT_FOUND: role=agent identifier="${idLower}"`);
       recordFailedAttempt();
       return res.status(401).json({ error: 'Identifiant ou mot de passe incorrect.' });
     }
 
+    if (matchedAgent.statut === 'inactif' || matchedAgent.statut === 'desactive') {
+      console.log(`[SECURITY LOG] AUTH_ACCOUNT_DISABLED: role=agent id="${matchedAgent.id}"`);
+      recordFailedAttempt();
+      return res.status(401).json({ error: 'Compte désactivé. Veuillez contacter votre manager.' });
+    }
+
+    const db = loadPersistedPasswords();
     const agentState = SERVER_AGENTS[matchedAgent.id] || {};
-    const expectedPass = agentState.password || ('TP' + matchedAgent.matricule_rh);
+    const customPass = db[matchedAgent.id.toLowerCase()] || db[(matchedAgent.matricule_rh || '').toLowerCase()];
+    const expectedPass = customPass || agentState.password || matchedAgent.password || ('TP' + matchedAgent.matricule_rh);
 
     if (cleanPass !== expectedPass) {
+      console.log(`[SECURITY LOG] AUTH_INVALID_PASSWORD: role=agent id="${matchedAgent.id}" matricule="${matchedAgent.matricule_rh}"`);
       recordFailedAttempt();
       return res.status(401).json({ error: 'Identifiant ou mot de passe incorrect.' });
     }
 
     recordSuccess();
+
+    const isFirstLogin = agentState.premier_login !== undefined
+      ? agentState.premier_login
+      : (matchedAgent.premier_login ?? false);
+
+    console.log(`[SECURITY LOG] AUTH_SUCCESS: role=agent id="${matchedAgent.id}" premier_login=${isFirstLogin}`);
 
     const sessionUser = {
       role: 'agent' as const,
@@ -189,12 +311,12 @@ app.post('/api/auth/login', (req, res) => {
       name: matchedAgent.nom_complet,
       prenom: matchedAgent.prenom,
       manager_name: matchedAgent.manager_name,
-      premier_login: Boolean(agentState.premier_login ?? false),
+      premier_login: Boolean(isFirstLogin),
       anciennete: matchedAgent.anciennete,
       log_activite: matchedAgent.log_activite,
     };
 
-    const sessionToken = 'sess_' + Math.random().toString(36).substring(2) + Date.now().toString(36);
+    const sessionToken = 'sess_' + crypto.randomBytes(32).toString('hex');
 
     return res.json({
       success: true,
@@ -206,21 +328,25 @@ app.post('/api/auth/login', (req, res) => {
 
 // Change Password API Endpoint
 app.post('/api/auth/change-password', (req, res) => {
-  const { role, id, newPassword } = req.body || {};
+  const { role, id, matricule, newPassword } = req.body || {};
   const cleanPass = (newPassword || '').trim();
 
   if (!cleanPass || cleanPass.length < 6) {
     return res.status(400).json({ error: 'Le mot de passe doit contenir au moins 6 caractères.' });
   }
 
+  if (id) savePersistedPassword(id, cleanPass);
+  if (matricule) savePersistedPassword(matricule, cleanPass);
+
   if (role === 'manager') {
-    const mgr = SERVER_MANAGERS.find((m) => m.id === id);
+    const mgr = SERVER_MANAGERS.find((m) => m.id === id || m.matricule === id || m.matricule === matricule);
     if (mgr) {
       mgr.password = cleanPass;
       mgr.premier_login = false;
     }
   } else {
     SERVER_AGENTS[id] = { password: cleanPass, premier_login: false };
+    if (matricule) SERVER_AGENTS[matricule] = { password: cleanPass, premier_login: false };
   }
 
   return res.json({ success: true, message: 'Mot de passe mis à jour avec succès.' });
@@ -300,7 +426,7 @@ N'hésitez pas à me poser directement votre question !`;
 }
 
 // Assistant IA Endpoint
-app.post('/api/chat', async (req, res) => {
+app.post('/api/chat', rateLimitAiEndpoint(20), async (req, res) => {
   const { message, history, context } = req.body || {};
 
   if (!message || typeof message !== 'string' || message.trim().length === 0) {
@@ -375,7 +501,7 @@ Règles de réponse :
 });
 
 // Coaching IA Endpoint
-app.post('/api/coaching', async (req, res) => {
+app.post('/api/coaching', rateLimitAiEndpoint(15), async (req, res) => {
   const { agentName, semaine, moisKey, periodType, perfData, anciennete, managerName } = req.body;
   const periodLabel = periodType === 'month' ? `Mois ${moisKey || 'En cours'}` : `Semaine ${semaine || 31}`;
 
@@ -444,7 +570,7 @@ Les résultats de la période démontrent un très bon engagement opérationnel.
 });
 
 // Feedback IA Endpoint
-app.post('/api/feedback', async (req, res) => {
+app.post('/api/feedback', rateLimitAiEndpoint(15), async (req, res) => {
   const { agentName, semaine, moisKey, periodType, perfData, managerName } = req.body;
   const periodLabel = periodType === 'month' ? `Mois ${moisKey || 'En cours'}` : `Semaine ${semaine || 31}`;
 
@@ -496,7 +622,7 @@ Réponds sous la forme d'un objet JSON valide avec 3 clés :
 });
 
 // OCR / Screenshot Agent Extraction Endpoint
-app.post('/api/extract-agents-image', async (req, res) => {
+app.post('/api/extract-agents-image', rateLimitAiEndpoint(10), async (req, res) => {
   const { imageBase64, mimeType } = req.body;
 
   try {

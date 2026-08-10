@@ -34,7 +34,12 @@ export const LoginPage: React.FC = () => {
       const res = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ role, identifier: cleanId, password: cleanPass }),
+        body: JSON.stringify({
+          role,
+          identifier: cleanId,
+          password: cleanPass,
+          clientAgents: store.getAgents(),
+        }),
       });
 
       if (res.ok) {
@@ -64,12 +69,22 @@ export const LoginPage: React.FC = () => {
 
     if (role === 'agent') {
       const agents = store.getAgents();
-      // Exact matching only for matricule_rh, log_activite, or email
+      // Exact matching for matricule_rh, log_activite, email, id, or nom_complet
       const agent = agents.find((a) => {
         const aMat = (a.matricule_rh || '').toLowerCase();
         const aLog = (a.log_activite || '').toLowerCase();
         const aEmail = (a.email || '').toLowerCase();
-        return aMat === idLower || aLog === idLower || aEmail === idLower;
+        const aId = (a.id || '').toLowerCase();
+        const aName = (a.nom_complet || '').toLowerCase();
+
+        return (
+          aMat === idLower ||
+          aLog === idLower ||
+          aEmail === idLower ||
+          aId === idLower ||
+          aName === idLower ||
+          ('tp' + aMat) === idLower
+        );
       });
 
       if (!agent) {
@@ -194,8 +209,8 @@ export const LoginPage: React.FC = () => {
           <h2 className="text-lg font-bold text-slate-900 dark:text-white">Connexion</h2>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
             {role === 'agent'
-              ? 'Entrez votre matricule RH ou identifiant agent'
-              : 'Entrez votre identifiant Manager'}
+              ? 'Entrez votre matricule RH (ex: 500)'
+              : 'Manager'}
           </p>
         </div>
 
@@ -235,7 +250,7 @@ export const LoginPage: React.FC = () => {
                 value={identifier}
                 onChange={(e) => setIdentifier(e.target.value)}
                 className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl pl-10 pr-4 py-3 text-sm text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-[#814BE7]/30 transition-all font-medium"
-                placeholder={role === 'agent' ? 'Entrez votre matricule RH' : 'Entrez votre identifiant Manager'}
+                placeholder={role === 'agent' ? 'Entrez votre matricule RH (ex: 500)' : 'Manager'}
                 required
               />
             </div>
@@ -281,7 +296,9 @@ export const LoginPage: React.FC = () => {
         </form>
 
         <p className="text-2xs text-center text-slate-500 mt-6 leading-relaxed font-normal">
-          Mot de passe initial : TP495 · Changement obligatoire à la première connexion
+          {role === 'agent'
+            ? 'Mot de passe initial : TP suivi de votre matricule RH (ex: TP500) · Changement obligatoire à la première connexion'
+            : 'Mot de passe initial : TP suivi de votre matricule RH (ex: TP218) · Changement obligatoire à la première connexion'}
         </p>
       </div>
     </div>

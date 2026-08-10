@@ -82,6 +82,97 @@ export const KPI_TARGETS: Record<CanalType, Record<AncienneteType, Record<string
 
 export const MAX_PRIME = 50000;
 
+export const RAP_WEIGHT = 0.30;
+export const CCX_WEIGHT = 0.30;
+export const TR_WEIGHT  = 0.20;
+export const DMT_WEIGHT = 0.20;
+
+export const KPI_WEIGHTS: Record<string, number> = {
+  rap: RAP_WEIGHT,
+  ccx: CCX_WEIGHT,
+  tr:  TR_WEIGHT,
+  dmt: DMT_WEIGHT,
+};
+
+export interface KpiContributionDetail {
+  kpiKey: string;
+  label: string;
+  value: number | null | undefined;
+  formattedValue: string;
+  target: number | null | undefined;
+  formattedTarget: string;
+  weightPct: number; // e.g. 30 for 30%
+  weightDecimal: number; // e.g. 0.30
+  conformityPct: number; // e.g. 98.9
+  contributionIndexPct: number; // e.g. 29.68 (conformity * weightDecimal)
+  primeAvantPoids: number; // e.g. 14000
+  primePonderee: number; // e.g. 4200
+}
+
+export interface KpiContributionsResult {
+  contributions: Record<string, KpiContributionDetail>;
+  totalIndexScore: number;
+  totalPrimeAvantPoids: number;
+  totalPrimePonderee: number;
+}
+
+export function getKpiContributions(
+  perf: Partial<WeeklyPerformance> | undefined | null,
+  targets: Record<string, number>,
+  canal: CanalType = 'Phone',
+  anciennete: AncienneteType = '+ 3 mois'
+): KpiContributionsResult {
+  const contributions: Record<string, KpiContributionDetail> = {};
+  let totalIndexScore = 0;
+  let totalPrimeAvantPoids = 0;
+  let totalPrimePonderee = 0;
+
+  KPI_KEYS.forEach((k) => {
+    const rawVal = perf ? (perf as any)[k] : null;
+    const targetVal = targets?.[k];
+    const weightDecimal = KPI_WEIGHTS[k] || 0.25;
+    const weightPct = Math.round(weightDecimal * 100);
+
+    let conformityPct = 0;
+    if (rawVal != null && targetVal != null && !isNaN(rawVal) && !isNaN(targetVal) && targetVal !== 0) {
+      const lower = LOWER_IS_BETTER.includes(k);
+      const ratio = lower ? targetVal / rawVal : rawVal / targetVal;
+      conformityPct = Math.min(Math.max(ratio, 0), 1.25) * 100;
+    }
+
+    const contributionIndexPct = Math.round(conformityPct * weightDecimal * 100) / 100;
+    totalIndexScore += contributionIndexPct;
+
+    const primeAvant = primeForKpi(rawVal, canal, anciennete, k);
+    totalPrimeAvantPoids += primeAvant;
+
+    const primePond = Math.round(primeAvant * weightDecimal);
+    totalPrimePonderee += primePond;
+
+    contributions[k] = {
+      kpiKey: k,
+      label: KPI_LABELS[k] || k.toUpperCase(),
+      value: rawVal,
+      formattedValue: formatKpiValue(k, rawVal),
+      target: targetVal,
+      formattedTarget: formatKpiValue(k, targetVal),
+      weightPct,
+      weightDecimal,
+      conformityPct: Math.round(conformityPct * 10) / 10,
+      contributionIndexPct,
+      primeAvantPoids: primeAvant,
+      primePonderee: primePond,
+    };
+  });
+
+  return {
+    contributions,
+    totalIndexScore: Math.round(totalIndexScore * 100) / 100,
+    totalPrimeAvantPoids,
+    totalPrimePonderee,
+  };
+}
+
 export function getKpiTarget(canal: CanalType, anciennete: AncienneteType, kpi: string): KpiTargetDetail | null {
   return KPI_TARGETS[canal]?.[anciennete]?.[kpi] || null;
 }
@@ -227,20 +318,10 @@ export function getStatusBg(status: string): string {
   }
 }
 
-export function calculatePerformanceScore(perf: Partial<WeeklyPerformance> | undefined, targets: Record<string, number>, _agent?: any): number {
+export function calculatePerformanceScore(perf: Partial<WeeklyPerformance> | undefined | null, targets: Record<string, number>, _agent?: any): number {
   if (!perf) return 0;
-  let score = 0;
-  let n = 0;
-  KPI_KEYS.forEach((k) => {
-    const v = (perf as any)[k];
-    const t = targets?.[k];
-    if (v == null || t == null || isNaN(v) || isNaN(t) || t === 0) return;
-    const lower = LOWER_IS_BETTER.includes(k);
-    const ratio = lower ? t / v : v / t;
-    score += Math.min(Math.max(ratio, 0), 1.1) * 100;
-    n++;
-  });
-  return n ? Math.round((score / n) * 100) / 100 : 0;
+  const res = getKpiContributions(perf, targets);
+  return res.totalIndexScore;
 }
 
 export function getScoreLevel(score: number) {
@@ -252,19 +333,63 @@ export function getScoreLevel(score: number) {
   return { label: 'Critique', color: 'text-red-500', emoji: '🚨' };
 }
 
+export interface AssiduiteDetails {
+  hPlanifiees: number;
+  hAbsence: number;
+  hEffectuees: number;
+  assiduitePct: number;
+  tauxAbsencePct: number;
+  formattedAssiduite: string;
+  formattedAbsence: string;
+}
+
+export function getAssiduiteDetails(perf: { h_planifiees?: number | null; h_absence?: number | null; presence?: number | null; assiduite?: number | null } | undefined | null): AssiduiteDetails {
+  let hPlan = 160;
+  let hAbs = 0;
+
+  if (perf) {
+    if (perf.h_planifiees != null && !isNaN(perf.h_planifiees) && perf.h_planifiees > 0) {
+      hPlan = perf.h_planifiees;
+    }
+    if (perf.h_absence != null && !isNaN(perf.h_absence)) {
+      hAbs = perf.h_absence;
+    } else if (perf.presence != null && !isNaN(perf.presence)) {
+      const pres = perf.presence <= 1 ? perf.presence * 100 : perf.presence;
+      hAbs = Math.round((hPlan * (100 - pres)) / 100);
+    }
+  }
+
+  if (hPlan <= 0) {
+    return {
+      hPlanifiees: 0,
+      hAbsence: 0,
+      hEffectuees: 0,
+      assiduitePct: 100,
+      tauxAbsencePct: 0,
+      formattedAssiduite: '100.0%',
+      formattedAbsence: '0.0%',
+    };
+  }
+
+  const hEff = Math.max(0, hPlan - hAbs);
+  const assid = Math.max(0, Math.min(100, (hEff / hPlan) * 100));
+  const absPct = Math.max(0, Math.min(100, (hAbs / hPlan) * 100));
+
+  return {
+    hPlanifiees: hPlan,
+    hAbsence: hAbs,
+    hEffectuees: hEff,
+    assiduitePct: Math.round(assid * 10) / 10,
+    tauxAbsencePct: Math.round(absPct * 10) / 10,
+    formattedAssiduite: `${(Math.round(assid * 10) / 10).toFixed(1)}%`,
+    formattedAbsence: `${(Math.round(absPct * 10) / 10).toFixed(1)}%`,
+  };
+}
+
 export function calculateAssiduiteFromPerf(perf: { h_planifiees?: number | null; h_absence?: number | null; presence?: number | null; assiduite?: number | null }): number | null {
   if (!perf) return null;
-  if (perf.h_planifiees != null && perf.h_planifiees > 0) {
-    const absence = perf.h_absence || 0;
-    return Math.max(0, Math.min(100, ((perf.h_planifiees - absence) / perf.h_planifiees) * 100));
-  }
-  if (perf.assiduite != null && !isNaN(perf.assiduite)) {
-    return perf.assiduite <= 1 ? perf.assiduite * 100 : perf.assiduite;
-  }
-  if (perf.presence != null && !isNaN(perf.presence)) {
-    return perf.presence <= 1 ? perf.presence * 100 : perf.presence;
-  }
-  return null;
+  const details = getAssiduiteDetails(perf);
+  return details.assiduitePct;
 }
 
 export function formatKpiValue(key: string, value: number | null | undefined): string {

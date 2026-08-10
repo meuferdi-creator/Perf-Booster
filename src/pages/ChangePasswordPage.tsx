@@ -42,7 +42,7 @@ export const ChangePasswordPage: React.FC = () => {
         await fetch('/api/auth/change-password', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ role: auth.role, id: auth.id, newPassword }),
+          body: JSON.stringify({ role: auth.role, id: auth.id, matricule: auth.matricule, newPassword }),
         });
       } catch {
         // ignore network failure for local state fallback

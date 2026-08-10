@@ -50,6 +50,9 @@ export interface WeeklyPerformance {
   yes?: number | null;
   no?: number | null;
   rap: number | null; // 0-1
+  yes_cumul_mois?: number | null;
+  no_cumul_mois?: number | null;
+  rap_mois?: number | null;
   besoin_oui?: number | null;
   ccx: number | null; // 0-1
   tr: number | null;  // 0-1

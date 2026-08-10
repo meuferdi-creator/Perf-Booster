@@ -8,6 +8,7 @@ import {
   INITIAL_ACTION_ITEMS,
   INITIAL_NOTIFICATIONS,
 } from './initial-data';
+import { isDummyOrSupportAgent } from './perimeter';
 
 const STORAGE_KEYS = {
   AGENTS: 'perf_agents',
@@ -56,21 +57,26 @@ class PerformanceStore {
     const loaded = loadItem<Agent[]>(STORAGE_KEYS.AGENTS, INITIAL_AGENTS);
     const agentMap = new Map<string, Agent>();
     for (const a of INITIAL_AGENTS) {
-      agentMap.set(a.id, { ...a });
+      if (!isDummyOrSupportAgent(a.nom_complet, a.matricule_rh, a.log_activite)) {
+        agentMap.set(a.id, { ...a });
+      }
     }
     for (const a of loaded) {
-      if (agentMap.has(a.id)) {
-        agentMap.set(a.id, { ...agentMap.get(a.id)!, ...a });
-      } else {
-        agentMap.set(a.id, a);
+      if (!isDummyOrSupportAgent(a.nom_complet, a.matricule_rh, a.log_activite)) {
+        if (agentMap.has(a.id)) {
+          agentMap.set(a.id, { ...agentMap.get(a.id)!, ...a });
+        } else {
+          agentMap.set(a.id, a);
+        }
       }
     }
     return Array.from(agentMap.values());
   }
 
   public saveAgent(agent: Agent): void {
+    if (isDummyOrSupportAgent(agent.nom_complet, agent.matricule_rh, agent.log_activite)) return;
     const agents = this.getAgents();
-    const idx = agents.findIndex((a) => a.id === agent.id);
+    const idx = agents.findIndex((a) => a.id === agent.id || a.matricule_rh === agent.matricule_rh);
     if (idx >= 0) {
       agents[idx] = agent;
     } else {
@@ -120,12 +126,27 @@ class PerformanceStore {
 
   // WEEKLY PERFORMANCES
   public getWeeklyPerformances(): WeeklyPerformance[] {
-    return loadItem<WeeklyPerformance[]>(STORAGE_KEYS.WEEKLY_PERFS, INITIAL_WEEKLY_PERFORMANCES);
+    const raw = loadItem<WeeklyPerformance[]>(STORAGE_KEYS.WEEKLY_PERFS, INITIAL_WEEKLY_PERFORMANCES);
+    const dedupMap = new Map<string, WeeklyPerformance>();
+
+    for (const p of raw) {
+      if (isDummyOrSupportAgent(p.agent_name, null, p.log_activite)) continue;
+      const key = `${(p.agent_id || p.log_activite || '').toLowerCase()}_${p.canal}_S${p.semaine}_${p.annee}`;
+      dedupMap.set(key, p);
+    }
+
+    return Array.from(dedupMap.values());
   }
 
   public saveWeeklyPerformance(perf: WeeklyPerformance): void {
+    if (isDummyOrSupportAgent(perf.agent_name, null, perf.log_activite)) return;
     const perfs = this.getWeeklyPerformances();
-    const idx = perfs.findIndex((p) => p.id === perf.id);
+    const key = `${(perf.agent_id || perf.log_activite || '').toLowerCase()}_${perf.canal}_S${perf.semaine}_${perf.annee}`;
+    const idx = perfs.findIndex(
+      (p) =>
+        p.id === perf.id ||
+        `${(p.agent_id || p.log_activite || '').toLowerCase()}_${p.canal}_S${p.semaine}_${p.annee}` === key
+    );
     if (idx >= 0) {
       perfs[idx] = perf;
     } else {
@@ -144,7 +165,13 @@ class PerformanceStore {
   public saveWeeklyPerformanceBatch(batch: WeeklyPerformance[]): void {
     const perfs = this.getWeeklyPerformances();
     batch.forEach((perf) => {
-      const idx = perfs.findIndex((p) => p.id === perf.id);
+      if (isDummyOrSupportAgent(perf.agent_name, null, perf.log_activite)) return;
+      const key = `${(perf.agent_id || perf.log_activite || '').toLowerCase()}_${perf.canal}_S${perf.semaine}_${perf.annee}`;
+      const idx = perfs.findIndex(
+        (p) =>
+          p.id === perf.id ||
+          `${(p.agent_id || p.log_activite || '').toLowerCase()}_${p.canal}_S${p.semaine}_${p.annee}` === key
+      );
       if (idx >= 0) perfs[idx] = perf;
       else perfs.push(perf);
     });
@@ -154,13 +181,28 @@ class PerformanceStore {
 
   // MONTHLY RESULTS
   public getMonthlyResults(): MonthlyResult[] {
-    return loadItem<MonthlyResult[]>(STORAGE_KEYS.MONTHLY_RESULTS, INITIAL_MONTHLY_RESULTS);
+    const raw = loadItem<MonthlyResult[]>(STORAGE_KEYS.MONTHLY_RESULTS, INITIAL_MONTHLY_RESULTS);
+    const dedupMap = new Map<string, MonthlyResult>();
+
+    for (const m of raw) {
+      if (isDummyOrSupportAgent(m.agent_name, m.matricule_rh, null)) continue;
+      const key = `${(m.agent_id || m.matricule_rh || m.agent_name || '').toLowerCase()}_${m.mois_key || m.mois_label}`;
+      dedupMap.set(key, m);
+    }
+
+    return Array.from(dedupMap.values());
   }
 
   public saveMonthlyResultsBatch(batch: MonthlyResult[]): void {
     const results = this.getMonthlyResults();
     batch.forEach((res) => {
-      const idx = results.findIndex((r) => r.id === res.id);
+      if (isDummyOrSupportAgent(res.agent_name, res.matricule_rh, null)) return;
+      const key = `${(res.agent_id || res.matricule_rh || res.agent_name || '').toLowerCase()}_${res.mois_key || res.mois_label}`;
+      const idx = results.findIndex(
+        (r) =>
+          r.id === res.id ||
+          `${(r.agent_id || r.matricule_rh || r.agent_name || '').toLowerCase()}_${r.mois_key || r.mois_label}` === key
+      );
       if (idx >= 0) results[idx] = res;
       else results.push(res);
     });

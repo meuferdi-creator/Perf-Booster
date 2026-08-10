@@ -7,6 +7,7 @@ import { Badge } from '../ui/Badge';
 import { Agent, AncienneteType, ContratType } from '../../types';
 import { store } from '../../lib/store';
 import { getStoredAuth } from '../../lib/auth-helpers';
+import { isDummyOrSupportAgent } from '../../lib/perimeter';
 
 interface ParsedRow {
   id: string;
@@ -68,7 +69,19 @@ export const AgentMassImportModal: React.FC<AgentMassImportModalProps> = ({
         const sheet = workbook.Sheets[sheetName];
         const rawJson: any[] = XLSX.utils.sheet_to_json(sheet, { defval: '' });
 
-        const rows: ParsedRow[] = rawJson.map((item: any, idx: number) => {
+        const rows: ParsedRow[] = rawJson
+          .filter((item: any) => {
+            const keys = Object.keys(item);
+            const getKey = (...names: string[]) => {
+              const found = keys.find((k) => names.some((n) => k.toLowerCase().trim().includes(n)));
+              return found ? String(item[found]).trim() : '';
+            };
+            const mat = getKey('matricule', 'rh', 'mat');
+            const nomVal = getKey('nom', 'nom_complet', 'lastname');
+            const logVal = getKey('log', 'activite', 'log_activite');
+            return !isDummyOrSupportAgent(nomVal, mat, logVal);
+          })
+          .map((item: any, idx: number) => {
           // Normalize key lookups
           const keys = Object.keys(item);
           const getKey = (...names: string[]) => {
@@ -229,25 +242,48 @@ export const AgentMassImportModal: React.FC<AgentMassImportModalProps> = ({
     }
 
     const currentManagerName = auth?.manager_name || 'SABI Prospere';
+    const allExistingAgents = store.getAgents();
 
     validRowsToImport.forEach((r) => {
+      const cleanMat = r.matricule_rh.trim();
+      const cleanLog = r.log_activite.trim() || `lom_${r.prenom.toLowerCase().replace(/\s+/g, '')}`;
       const nomComplet = `${r.nom.toUpperCase()} ${r.prenom}`.trim();
-      const newAgent: Agent = {
-        id: `agent-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
-        matricule_rh: r.matricule_rh.trim(),
-        nom_complet: nomComplet,
-        nom: r.nom.toUpperCase().trim(),
-        prenom: r.prenom.trim(),
-        manager_name: currentManagerName,
-        contrat: r.contrat,
-        anciennete: r.anciennete,
-        log_activite: r.log_activite.trim() || `lom_${r.prenom.toLowerCase().replace(/\s+/g, '')}`,
-        statut: 'actif',
-        role: 'agent',
-        premier_login: true,
-      };
 
-      store.saveAgent(newAgent);
+      // Check if agent already exists to avoid overwriting passwords or premier_login state
+      const existing = allExistingAgents.find(
+        (a) =>
+          (a.matricule_rh && a.matricule_rh.toLowerCase() === cleanMat.toLowerCase()) ||
+          (a.log_activite && a.log_activite.toLowerCase() === cleanLog.toLowerCase())
+      );
+
+      if (existing) {
+        const updatedAgent: Agent = {
+          ...existing,
+          nom_complet: nomComplet || existing.nom_complet,
+          nom: r.nom.toUpperCase().trim() || existing.nom,
+          prenom: r.prenom.trim() || existing.prenom,
+          contrat: r.contrat || existing.contrat,
+          anciennete: r.anciennete || existing.anciennete,
+          manager_name: currentManagerName || existing.manager_name,
+        };
+        store.saveAgent(updatedAgent);
+      } else {
+        const newAgent: Agent = {
+          id: `agent-${cleanMat || Date.now()}`,
+          matricule_rh: cleanMat,
+          nom_complet: nomComplet,
+          nom: r.nom.toUpperCase().trim(),
+          prenom: r.prenom.trim(),
+          manager_name: currentManagerName,
+          contrat: r.contrat,
+          anciennete: r.anciennete,
+          log_activite: cleanLog,
+          statut: 'actif',
+          role: 'agent',
+          premier_login: true,
+        };
+        store.saveAgent(newAgent);
+      }
     });
 
     setFeedback({

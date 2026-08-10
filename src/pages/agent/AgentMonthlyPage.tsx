@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Calendar, DollarSign, Award, CheckCircle, Percent } from 'lucide-react';
 import { Card } from '../../components/ui/Card';
 import { Badge } from '../../components/ui/Badge';
+import { PrimeImpactCard } from '../../components/agent/PrimeImpactCard';
 import { store } from '../../lib/store';
 import { getStoredAuth } from '../../lib/auth-helpers';
 import { MonthlyResult } from '../../types';
@@ -132,6 +133,16 @@ export const AgentMonthlyPage: React.FC = () => {
           </div>
         )}
       </Card>
+
+      {/* Impact Présence / Absence Card */}
+      <PrimeImpactCard
+        agentName={monthlyRes.agent_name}
+        pvSansPresence={monthlyRes.pv_sans_presence}
+        presencePct={monthlyRes.presence}
+        hPlanifiees={160}
+        hAbsence={Math.round((160 * (100 - monthlyRes.presence)) / 100)}
+        hEffectuees={Math.round((160 * monthlyRes.presence) / 100)}
+      />
     </div>
   );
 };
