@@ -221,10 +221,16 @@ class PerformanceStore {
 
   // WEEKLY PERFORMANCES
   public getWeeklyPerformances(): WeeklyPerformance[] {
-    const raw = loadItem<WeeklyPerformance[]>(STORAGE_KEYS.WEEKLY_PERFS, INITIAL_WEEKLY_PERFORMANCES);
+    const loaded = loadItem<WeeklyPerformance[]>(STORAGE_KEYS.WEEKLY_PERFS, INITIAL_WEEKLY_PERFORMANCES);
     const dedupMap = new Map<string, WeeklyPerformance>();
 
-    for (const p of raw) {
+    for (const p of INITIAL_WEEKLY_PERFORMANCES) {
+      if (isDummyOrSupportAgent(p.agent_name, null, p.log_activite)) continue;
+      const key = `${(p.agent_id || p.log_activite || '').toLowerCase()}_${p.canal}_S${p.semaine}_${p.annee}`;
+      dedupMap.set(key, { ...p });
+    }
+
+    for (const p of loaded) {
       if (isDummyOrSupportAgent(p.agent_name, null, p.log_activite)) continue;
       const key = `${(p.agent_id || p.log_activite || '').toLowerCase()}_${p.canal}_S${p.semaine}_${p.annee}`;
       dedupMap.set(key, p);
@@ -265,7 +271,7 @@ class PerformanceStore {
       const idx = perfs.findIndex(
         (p) =>
           p.id === perf.id ||
-          `${(p.agent_id || p.log_activite || '').toLowerCase()}_${p.canal}_S${p.semaine}_${p.annee}` === key
+          `${(p.agent_id || perf.log_activite || '').toLowerCase()}_${p.canal}_S${p.semaine}_${p.annee}` === key
       );
       if (idx >= 0) perfs[idx] = perf;
       else perfs.push(perf);
@@ -276,10 +282,16 @@ class PerformanceStore {
 
   // MONTHLY RESULTS
   public getMonthlyResults(): MonthlyResult[] {
-    const raw = loadItem<MonthlyResult[]>(STORAGE_KEYS.MONTHLY_RESULTS, INITIAL_MONTHLY_RESULTS);
+    const loaded = loadItem<MonthlyResult[]>(STORAGE_KEYS.MONTHLY_RESULTS, INITIAL_MONTHLY_RESULTS);
     const dedupMap = new Map<string, MonthlyResult>();
 
-    for (const m of raw) {
+    for (const m of INITIAL_MONTHLY_RESULTS) {
+      if (isDummyOrSupportAgent(m.agent_name, m.matricule_rh, null)) continue;
+      const key = `${(m.agent_id || m.matricule_rh || m.agent_name || '').toLowerCase()}_${m.mois_key || m.mois_label}`;
+      dedupMap.set(key, { ...m });
+    }
+
+    for (const m of loaded) {
       if (isDummyOrSupportAgent(m.agent_name, m.matricule_rh, null)) continue;
       const key = `${(m.agent_id || m.matricule_rh || m.agent_name || '').toLowerCase()}_${m.mois_key || m.mois_label}`;
       dedupMap.set(key, m);

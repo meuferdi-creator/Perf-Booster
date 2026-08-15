@@ -27,6 +27,7 @@ export const ManagerAnalyticsPage: React.FC = () => {
   const auth = getStoredAuth();
   const [selectedKpi, setSelectedKpi] = useState('rap');
   const [selectedCanal, setSelectedCanal] = useState('Phone');
+  const [selectedSemaine, setSelectedSemaine] = useState<number>(32);
   const [perfs, setPerfs] = useState<WeeklyPerformance[]>([]);
 
   useEffect(() => {
@@ -50,7 +51,7 @@ export const ManagerAnalyticsPage: React.FC = () => {
   };
 
   // Aggregate team weekly trend
-  const weeks = [27, 28, 29, 30, 31];
+  const weeks = [31, 32];
   const trendData = weeks.map((w) => {
     const weekPerfs = perfs.filter((p) => p.semaine === w && p.canal === selectedCanal);
     const sum = weekPerfs.reduce((acc, p) => acc + getKpiVal(p), 0);
@@ -62,9 +63,9 @@ export const ManagerAnalyticsPage: React.FC = () => {
     };
   });
 
-  // Agent comparison for S31
-  const s31Perfs = perfs.filter((p) => p.semaine === 31 && p.canal === selectedCanal);
-  const agentBarData = s31Perfs.map((p) => ({
+  // Agent comparison for selected week
+  const weekPerfs = perfs.filter((p) => p.semaine === selectedSemaine && p.canal === selectedCanal);
+  const agentBarData = weekPerfs.map((p) => ({
     agent: p.agent_name.split(' ')[0],
     valeur: Number(getKpiVal(p).toFixed(1)),
   }));
@@ -109,6 +110,16 @@ export const ManagerAnalyticsPage: React.FC = () => {
             { value: 'assiduite', label: 'Assiduité (%)' },
           ]}
         />
+
+        <Select
+          label="Semaine Comparée"
+          value={String(selectedSemaine)}
+          onChange={(e) => setSelectedSemaine(Number(e.target.value))}
+          options={[
+            { value: '32', label: 'Semaine 32' },
+            { value: '31', label: 'Semaine 31' },
+          ]}
+        />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -141,7 +152,7 @@ export const ManagerAnalyticsPage: React.FC = () => {
         {/* Agent Comparison Bar Chart */}
         <Card>
           <h3 className="font-bold text-sm text-slate-900 dark:text-slate-100 mb-4 flex items-center gap-2">
-            <Users className="w-4 h-4 text-[#814BE7]" /> Comparatif Agents S31 ({selectedCanal} - {selectedKpi.toUpperCase()})
+            <Users className="w-4 h-4 text-[#814BE7]" /> Comparatif Agents S{selectedSemaine} ({selectedCanal} - {selectedKpi.toUpperCase()})
           </h3>
           <div className="h-64">
             <ResponsiveContainer width="100%" height="100%">

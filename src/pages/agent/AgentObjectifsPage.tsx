@@ -28,25 +28,27 @@ export const AgentObjectifsPage: React.FC = () => {
   }, []);
 
   const channelPerfs = perfs.filter((p) => p.canal === selectedCanal);
-  const currentPerf = channelPerfs.find((p) => p.semaine === 31) || channelPerfs[0];
+  const currentPerf = channelPerfs.find((p) => p.semaine === 32) || channelPerfs.find((p) => p.semaine === 31) || channelPerfs[0];
+  const activeSemaine = currentPerf?.semaine || 32;
   const anciennete = auth?.anciennete || '+ 3 mois';
   const targets = getTargets(anciennete);
 
-  // Compute multicanal breakdown for Prime impact card
-  const phoneP = perfs.find((p) => p.canal === 'Phone');
-  const emailP = perfs.find((p) => p.canal === 'Email');
-  const muP = perfs.find((p) => p.canal === 'MU');
+  // Compute multicanal breakdown for Prime impact card for the active week
+  const weekPerfs = perfs.filter((p) => p.semaine === activeSemaine);
+  const phoneP = weekPerfs.find((p) => p.canal === 'Phone');
+  const emailP = weekPerfs.find((p) => p.canal === 'Email');
+  const muP = weekPerfs.find((p) => p.canal === 'MU');
 
   const currentPerfAny = currentPerf as any;
 
   const multiRes = calculateMulticanalPrime(
     {
-      Phone: { vol: phoneP?.vol || 408, rap: phoneP?.rap, tr: phoneP?.tr, ccx: phoneP?.ccx, dmt: phoneP?.dmt },
-      Email: { vol: emailP?.vol || 215, rap: emailP?.rap, tr: emailP?.tr, ccx: emailP?.ccx, dmt: emailP?.dmt },
-      MU: { vol: muP?.vol || 114, rap: muP?.rap, tr: muP?.tr, ccx: muP?.ccx, dmt: muP?.dmt },
+      Phone: phoneP ? { vol: phoneP.vol || 0, rap: phoneP.rap, tr: phoneP.tr, ccx: phoneP.ccx, dmt: phoneP.dmt } : undefined,
+      Email: emailP ? { vol: emailP.vol || 0, rap: emailP.rap, tr: emailP.tr, ccx: emailP.ccx, dmt: emailP.dmt } : undefined,
+      MU: muP ? { vol: muP.vol || 0, rap: muP.rap, tr: muP.tr, ccx: muP.ccx, dmt: muP.dmt } : undefined,
     },
     anciennete,
-    currentPerfAny?.presence || 99.7
+    currentPerfAny?.presence || 100
   );
 
   return (

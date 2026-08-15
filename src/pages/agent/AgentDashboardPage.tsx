@@ -53,8 +53,8 @@ export const AgentDashboardPage: React.FC = () => {
 
   // Current latest week performance for selected channel
   const channelPerfs = perfs.filter((p) => p.canal === selectedCanal);
-  const currentPerf = channelPerfs.find((p) => p.semaine === 31) || channelPerfs[0];
-  const prevPerf = channelPerfs.find((p) => p.semaine === 30);
+  const currentPerf = channelPerfs.find((p) => p.semaine === 32) || channelPerfs.find((p) => p.semaine === 31) || channelPerfs[0];
+  const prevPerf = channelPerfs.find((p) => p.semaine === 31 && currentPerf?.semaine === 32) || channelPerfs.find((p) => p.semaine === 30);
 
   const targets = getTargets(auth?.anciennete || '+ 3 mois');
   const score = calculatePerformanceScore(currentPerf, targets);
@@ -70,7 +70,7 @@ export const AgentDashboardPage: React.FC = () => {
             <span className="text-2xs font-bold uppercase tracking-wider text-indigo-300 bg-indigo-900/60 px-2.5 py-0.5 rounded-full border border-indigo-700/50">
               Agent Support
             </span>
-            <span className="text-2xs text-slate-400">· Semaine 31</span>
+            <span className="text-2xs text-slate-400">· Semaine {currentPerf?.semaine || 32}</span>
           </div>
           <h1 className="text-2xl sm:text-3xl font-black text-white">
             Bonjour, {auth?.prenom || 'Shalom'} 👋

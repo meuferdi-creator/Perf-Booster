@@ -36,6 +36,7 @@ export const ManagerDashboardPage: React.FC = () => {
     return store.subscribe(update);
   }, []);
 
+  const latestMoisLabel = monthlyResults[0]?.mois_label || 'Août 2026';
   const totalDistributed = monthlyResults.reduce((s, r) => s + (r.pv_finale || 0), 0);
   const avgPrime = monthlyResults.length > 0 ? Math.round(totalDistributed / monthlyResults.length) : 0;
   const aRenforcerCount = monthlyResults.filter((r) => r.statut === 'À renforcer').length;
@@ -52,7 +53,7 @@ export const ManagerDashboardPage: React.FC = () => {
             <span className="text-2xs font-bold uppercase tracking-wider text-purple-300 bg-purple-900/60 px-2.5 py-0.5 rounded-full border border-purple-700/50">
               Espace Management Support
             </span>
-            <span className="text-2xs text-slate-400">· Juillet 2026</span>
+            <span className="text-2xs text-slate-400">· {latestMoisLabel}</span>
           </div>
           <h1 className="text-2xl sm:text-3xl font-black text-white">
             Vue d'ensemble · {auth?.name || 'SABI Prospere'}
@@ -96,7 +97,7 @@ export const ManagerDashboardPage: React.FC = () => {
           </div>
           <div className="mt-3">
             <span className="text-2xl font-black text-slate-900 dark:text-slate-100">{formatFCFA(totalDistributed)}</span>
-            <span className="text-xs text-slate-400 block mt-0.5">Total Juillet 2026</span>
+            <span className="text-xs text-slate-400 block mt-0.5">Total {latestMoisLabel}</span>
           </div>
         </Card>
 
