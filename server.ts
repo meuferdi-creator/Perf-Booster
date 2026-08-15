@@ -2297,7 +2297,10 @@ Retourne un tableau JSON d'objets d'agents.`;
   }
 });
 
-// Vite Middleware setup
+// Export express app for serverless environments (e.g. Vercel)
+export { app };
+
+// Vite Middleware & Standalone Server Startup
 async function startServer() {
   if (process.env.NODE_ENV !== 'production') {
     const { createServer: createViteServer } = await import('vite');
@@ -2314,9 +2317,16 @@ async function startServer() {
     });
   }
 
-  app.listen(PORT, '0.0.0.0', () => {
-    console.log(`Server running on http://0.0.0.0:${PORT}`);
-  });
+  // Only listen if not running in a Vercel serverless environment
+  if (!process.env.VERCEL) {
+    app.listen(PORT, '0.0.0.0', () => {
+      console.log(`Server running on http://0.0.0.0:${PORT}`);
+    });
+  }
 }
 
-startServer();
+// In local / Cloud Run environments, start the server automatically
+if (!process.env.VERCEL) {
+  startServer();
+}
+
