@@ -37,6 +37,8 @@ export const AgentObjectifsPage: React.FC = () => {
   const emailP = perfs.find((p) => p.canal === 'Email');
   const muP = perfs.find((p) => p.canal === 'MU');
 
+  const currentPerfAny = currentPerf as any;
+
   const multiRes = calculateMulticanalPrime(
     {
       Phone: { vol: phoneP?.vol || 408, rap: phoneP?.rap, tr: phoneP?.tr, ccx: phoneP?.ccx, dmt: phoneP?.dmt },
@@ -44,7 +46,7 @@ export const AgentObjectifsPage: React.FC = () => {
       MU: { vol: muP?.vol || 114, rap: muP?.rap, tr: muP?.tr, ccx: muP?.ccx, dmt: muP?.dmt },
     },
     anciennete,
-    currentPerf?.presence || 99.7
+    currentPerfAny?.presence || 99.7
   );
 
   return (
@@ -96,12 +98,12 @@ export const AgentObjectifsPage: React.FC = () => {
 
       {/* 3. Presence / Absence & Prime Impact Card */}
       <PrimeImpactCard
-        agentName={auth?.nom_complet || 'Agent Support'}
+        agentName={auth?.name || (auth as any)?.nom_complet || 'Agent Support'}
         pvSansPresence={multiRes.pvSansPresence || 34200}
-        presencePct={currentPerf?.presence || 99.7}
-        hPlanifiees={currentPerf?.h_planifiees || 160}
-        hAbsence={currentPerf?.h_absence || 0.5}
-        hEffectuees={currentPerf?.h_effectuees || 159.5}
+        presencePct={currentPerfAny?.presence || 99.7}
+        hPlanifiees={currentPerfAny?.h_planifiees || 160}
+        hAbsence={currentPerfAny?.h_absence || 0.5}
+        hEffectuees={currentPerfAny?.h_effectuees || 159.5}
       />
     </div>
   );

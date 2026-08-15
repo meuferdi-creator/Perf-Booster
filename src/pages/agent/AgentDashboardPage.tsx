@@ -174,15 +174,15 @@ export const AgentDashboardPage: React.FC = () => {
 
           {/* Latest Manager Feedback */}
           {currentPerf?.feedback && (
-            <Card className="border-indigo-100 bg-gradient-to-br from-white to-indigo-50/30">
-              <div className="flex items-center gap-2 text-xs font-bold text-[#814BE7] mb-2">
+            <Card className="border-indigo-100 dark:border-indigo-900/50 bg-gradient-to-br from-white to-indigo-50/30 dark:from-slate-900 dark:to-indigo-950/30">
+              <div className="flex items-center gap-2 text-xs font-bold text-[#814BE7] dark:text-purple-400 mb-2">
                 <MessageSquare className="w-4 h-4" />
                 <span>Dernier Feedback Manager</span>
               </div>
               <p className="text-xs text-slate-700 italic dark:text-slate-300">
                 "{currentPerf.feedback}"
               </p>
-              <div className="mt-3 pt-2 border-t border-indigo-100/60 flex justify-between items-center text-3xs text-slate-400">
+              <div className="mt-3 pt-2 border-t border-indigo-100/60 dark:border-indigo-900/40 flex justify-between items-center text-3xs text-slate-400">
                 <span>Par: {currentPerf.manager_name}</span>
                 <span>Semaine {currentPerf.semaine}</span>
               </div>

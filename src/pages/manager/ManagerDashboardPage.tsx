@@ -129,7 +129,7 @@ export const ManagerDashboardPage: React.FC = () => {
 
       {/* Rankings Section */}
       <Card noPadding>
-        <div className="p-4 border-b border-slate-100 flex items-center justify-between">
+        <div className="p-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
           <Tabs
             tabs={[
               { id: 'top', label: 'Top Performers (Primes Elevées)', icon: <Award className="w-4 h-4" /> },

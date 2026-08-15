@@ -32,7 +32,6 @@ export interface Manager {
   nom?: string;
   prenom?: string;
   matricule?: string;
-  password?: string;
   premier_login?: boolean;
   locked_password?: boolean;
   isGlobalAdmin?: boolean;
@@ -196,6 +195,7 @@ export interface CoachingRecord {
 export interface StoredAuth {
   role: 'agent' | 'manager' | 'admin';
   id: string;
+  token?: string;
   matricule?: string;
   name: string;
   nom?: string;

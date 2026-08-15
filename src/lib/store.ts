@@ -9,6 +9,7 @@ import {
   INITIAL_NOTIFICATIONS,
 } from './initial-data';
 import { isDummyOrSupportAgent } from './perimeter';
+import { getAuthToken } from './auth-helpers';
 
 const STORAGE_KEYS = {
   AGENTS: 'perf_agents',
@@ -43,6 +44,39 @@ function saveItem<T>(key: string, val: T): void {
 class PerformanceStore {
   private listeners: Set<() => void> = new Set();
 
+  constructor() {
+    this.syncWithServer();
+  }
+
+  public async syncWithServer(): Promise<void> {
+    try {
+      const token = getAuthToken();
+      if (!token) return;
+      const res = await fetch('/api/agents', {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data && Array.isArray(data.agents) && data.agents.length > 0) {
+          const current = this.getAgents();
+          const map = new Map<string, Agent>();
+          for (const c of current) {
+            map.set(c.id, c);
+          }
+          for (const sa of data.agents) {
+            if (!isDummyOrSupportAgent(sa.nom_complet, sa.matricule_rh, sa.log_activite)) {
+              map.set(sa.id, { ...map.get(sa.id), ...sa });
+            }
+          }
+          saveItem(STORAGE_KEYS.AGENTS, Array.from(map.values()));
+          this.notify();
+        }
+      }
+    } catch {
+      // Offline or server unavailable
+    }
+  }
+
   public subscribe(listener: () => void): () => void {
     this.listeners.add(listener);
     return () => this.listeners.delete(listener);
@@ -64,7 +98,17 @@ class PerformanceStore {
     for (const a of loaded) {
       if (!isDummyOrSupportAgent(a.nom_complet, a.matricule_rh, a.log_activite)) {
         if (agentMap.has(a.id)) {
-          agentMap.set(a.id, { ...agentMap.get(a.id)!, ...a });
+          const canonical = agentMap.get(a.id)!;
+          const isStoredPlaceholder = /^AGENT\s+\d+$/i.test((a.nom_complet || '').trim());
+          agentMap.set(a.id, {
+            ...canonical,
+            ...a,
+            nom_complet: isStoredPlaceholder ? canonical.nom_complet : (a.nom_complet || canonical.nom_complet),
+            nom: isStoredPlaceholder ? canonical.nom : (a.nom || canonical.nom),
+            prenom: isStoredPlaceholder ? canonical.prenom : (a.prenom || canonical.prenom),
+            manager_name: a.manager_name || canonical.manager_name,
+            log_activite: a.log_activite || canonical.log_activite,
+          });
         } else {
           agentMap.set(a.id, a);
         }
@@ -73,8 +117,44 @@ class PerformanceStore {
     return Array.from(agentMap.values());
   }
 
-  public saveAgent(agent: Agent): void {
-    if (isDummyOrSupportAgent(agent.nom_complet, agent.matricule_rh, agent.log_activite)) return;
+  public getAgentByMatricule(matricule?: string | null): Agent | undefined {
+    if (!matricule) return undefined;
+    const cleanMat = String(matricule).trim().toLowerCase();
+    return this.getAgents().find(
+      (a) =>
+        String(a.matricule_rh).trim().toLowerCase() === cleanMat ||
+        a.id.toLowerCase() === `agent-${cleanMat}` ||
+        (a.log_activite && a.log_activite.toLowerCase() === cleanMat)
+    );
+  }
+
+  public getAgentById(id?: string | null): Agent | undefined {
+    if (!id) return undefined;
+    const cleanId = String(id).trim().toLowerCase();
+    return this.getAgents().find((a) => a.id.toLowerCase() === cleanId || a.matricule_rh.toLowerCase() === cleanId);
+  }
+
+  public async saveAgent(agent: Agent): Promise<boolean> {
+    if (isDummyOrSupportAgent(agent.nom_complet, agent.matricule_rh, agent.log_activite)) return false;
+
+    // Server-first update: verify with server before updating local cache
+    const token = getAuthToken();
+    if (token) {
+      const res = await fetch('/api/agents', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(agent),
+      });
+
+      if (!res.ok) {
+        const errData = await res.json().catch(() => null);
+        throw new Error(errData?.error || 'Erreur serveur lors de la sauvegarde de l\'agent.');
+      }
+    }
+
     const agents = this.getAgents();
     const idx = agents.findIndex((a) => a.id === agent.id || a.matricule_rh === agent.matricule_rh);
     if (idx >= 0) {
@@ -84,12 +164,27 @@ class PerformanceStore {
     }
     saveItem(STORAGE_KEYS.AGENTS, agents);
     this.notify();
+    return true;
   }
 
-  public deleteAgent(agentId: string): void {
+  public async deleteAgent(agentId: string): Promise<boolean> {
+    const token = getAuthToken();
+    if (token) {
+      const res = await fetch(`/api/agents/${encodeURIComponent(agentId)}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (!res.ok) {
+        const errData = await res.json().catch(() => null);
+        throw new Error(errData?.error || 'Erreur serveur lors de la suppression de l\'agent.');
+      }
+    }
+
     const agents = this.getAgents().filter((a) => a.id !== agentId);
     saveItem(STORAGE_KEYS.AGENTS, agents);
     this.notify();
+    return true;
   }
 
   // MANAGERS

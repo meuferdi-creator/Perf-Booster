@@ -5,7 +5,7 @@ import { Card } from '../../components/ui/Card';
 import { Select } from '../../components/ui/Select';
 import { Button } from '../../components/ui/Button';
 import { store } from '../../lib/store';
-import { getStoredAuth } from '../../lib/auth-helpers';
+import { getStoredAuth, getAuthToken } from '../../lib/auth-helpers';
 import { filterByManager } from '../../lib/perimeter';
 import { Agent } from '../../types';
 
@@ -71,9 +71,13 @@ export const ManagerFeedbacksPage: React.FC = () => {
       const allPerfs = store.getWeeklyPerformances();
       const myPerf = allPerfs.find((p) => p.agent_id === selectedAgent.id && p.semaine === Number(semaine));
 
+      const token = getAuthToken();
       const response = await fetch('/api/feedback', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
         body: JSON.stringify({
           agentName: selectedAgent.nom_complet,
           semaine: Number(semaine),

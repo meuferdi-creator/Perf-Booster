@@ -25,10 +25,10 @@ import { Select } from '../../components/ui/Select';
 import { Badge } from '../../components/ui/Badge';
 import { Tabs } from '../../components/ui/Tabs';
 import { store } from '../../lib/store';
-import { getStoredAuth } from '../../lib/auth-helpers';
+import { getStoredAuth, getAuthToken } from '../../lib/auth-helpers';
 import { filterByManager } from '../../lib/perimeter';
 import { Agent, WeeklyPerformance, MonthlyResult, CoachingRecord } from '../../types';
-import { calculateAssiduiteFromPerf } from '../../lib/kpi-utils';
+import { calculateAssiduiteFromPerf, KPI_TARGETS, CanalType } from '../../lib/kpi-utils';
 
 export const ManagerCoachingPage: React.FC = () => {
   const auth = getStoredAuth();
@@ -84,35 +84,139 @@ export const ManagerCoachingPage: React.FC = () => {
     return store.subscribe(loadData);
   }, [periodType, selectedSemaine, selectedMoisKey]);
 
-  // Fetch Agent Context
+  // Fetch Real Agent Context Data (including targets and historical trends)
   const getAgentContextData = (agent: Agent) => {
+    const normAnciennete = agent.anciennete === '- 3 mois' ? '- 3 mois' : '+ 3 mois';
+
     if (periodType === 'week') {
       const allPerfs = store.getWeeklyPerformances();
-      const perfs = allPerfs.filter((p) => p.agent_id === agent.id && p.semaine === selectedSemaine);
-      const perf = perfs[0];
-      const assid = perf ? calculateAssiduiteFromPerf(perf) : 100;
+      const currentPerfs = allPerfs.filter(
+        (p) => (p.agent_id === agent.id || p.log_activite === agent.log_activite) && p.semaine === selectedSemaine
+      );
+
+      const historyPerfs = allPerfs
+        .filter(
+          (p) => (p.agent_id === agent.id || p.log_activite === agent.log_activite) && p.semaine < selectedSemaine
+        )
+        .sort((a, b) => b.semaine - a.semaine);
+
+      const channelsData = currentPerfs.map((p) => {
+        const channelName = (p.canal || 'Phone') as CanalType;
+        const channelTargets = KPI_TARGETS[channelName]?.[normAnciennete] || KPI_TARGETS.Phone['+ 3 mois'];
+        const assid = calculateAssiduiteFromPerf(p);
+
+        return {
+          canal: channelName,
+          semaine: p.semaine,
+          rap: p.rap != null ? p.rap : null,
+          tr: p.tr != null ? p.tr : null,
+          ccx: p.ccx != null ? p.ccx : null,
+          dmt: p.dmt != null ? p.dmt : null,
+          vol: p.vol != null ? p.vol : null,
+          h_planifiees: p.h_planifiees != null ? p.h_planifiees : null,
+          h_absence: p.h_absence != null ? p.h_absence : null,
+          assiduite: assid,
+          statut: p.statut || null,
+          cibles_metier: {
+            rap_target: channelTargets.rap.s100,
+            tr_target: channelTargets.tr.s100,
+            ccx_target: channelTargets.ccx.s100,
+            dmt_target: channelTargets.dmt.s100,
+          },
+        };
+      });
+
+      const historyData = historyPerfs.map((p) => ({
+        semaine: p.semaine,
+        canal: p.canal,
+        rap: p.rap,
+        tr: p.tr,
+        ccx: p.ccx,
+        dmt: p.dmt,
+        vol: p.vol,
+      }));
+
       return {
-        rap: perf?.rap ?? 0.85,
-        tr: perf?.tr ?? 0.12,
-        ccx: perf?.ccx ?? 0.92,
-        dmt: perf?.dmt ?? 600,
-        vol: perf?.vol ?? 180,
-        h_planifiees: perf?.h_planifiees ?? 40,
-        h_absence: perf?.h_absence ?? 0,
-        assiduite: assid,
-        canal: perf?.canal ?? 'Phone',
+        agent: {
+          nom_complet: agent.nom_complet,
+          matricule_rh: agent.matricule_rh,
+          anciennete: agent.anciennete,
+          statut_contrat: agent.statut_contrat,
+        },
+        periode: `Semaine S${selectedSemaine}`,
+        canaux: channelsData,
+        historique_semaines_precedentes: historyData.slice(0, 8),
+        commentaires_existants: currentPerfs
+          .map((p) => ({ canal: p.canal, feedback: p.feedback, axes: p.axes_amelioration }))
+          .filter((c) => c.feedback || c.axes),
       };
     } else {
       const allMonthly = store.getMonthlyResults();
-      const monthly = allMonthly.find((m) => m.agent_id === agent.id && m.mois_key === selectedMoisKey);
+      const monthly = allMonthly.find(
+        (m) => (m.agent_id === agent.id || m.matricule_rh === agent.matricule_rh) && m.mois_key === selectedMoisKey
+      );
+
+      const historyMonthly = allMonthly
+        .filter(
+          (m) => (m.agent_id === agent.id || m.matricule_rh === agent.matricule_rh) && m.mois_key < selectedMoisKey
+        )
+        .sort((a, b) => b.mois_key.localeCompare(a.mois_key));
+
       return {
-        rap: monthly?.rap_phone ?? 0.85,
-        tr: monthly?.tr_phone ?? 0.12,
-        ccx: monthly?.ccx_phone ?? 0.92,
-        dmt: monthly?.dmt_phone ?? 600,
-        presence: monthly?.presence ?? 100,
-        pv_finale: monthly?.pv_finale ?? 45000,
-        statut_prime: monthly?.statut ?? 'Objectif atteint',
+        agent: {
+          nom_complet: agent.nom_complet,
+          matricule_rh: agent.matricule_rh,
+          anciennete: agent.anciennete,
+          statut_contrat: agent.statut_contrat,
+        },
+        periode: `Mois ${selectedMoisKey}`,
+        donnees_mensuelles: monthly
+          ? {
+              vol_total: monthly.vol_total,
+              presence: monthly.presence,
+              pv_finale: monthly.pv_finale,
+              statut_prime: monthly.statut,
+              canaux: {
+                phone: monthly.vol_phone
+                  ? {
+                      vol: monthly.vol_phone,
+                      rap: monthly.rap_phone,
+                      tr: monthly.tr_phone,
+                      ccx: monthly.ccx_phone,
+                      dmt: monthly.dmt_phone,
+                      cibles: KPI_TARGETS.Phone[normAnciennete],
+                    }
+                  : null,
+                email: monthly.vol_email
+                  ? {
+                      vol: monthly.vol_email,
+                      rap: monthly.rap_email,
+                      tr: monthly.tr_email,
+                      ccx: monthly.ccx_email,
+                      dmt: monthly.dmt_email,
+                      cibles: KPI_TARGETS.Email[normAnciennete],
+                    }
+                  : null,
+                mu: monthly.vol_mu
+                  ? {
+                      vol: monthly.vol_mu,
+                      rap: monthly.rap_mu,
+                      tr: monthly.tr_mu,
+                      ccx: monthly.ccx_mu,
+                      dmt: monthly.dmt_mu,
+                      cibles: KPI_TARGETS.MU[normAnciennete],
+                    }
+                  : null,
+              },
+            }
+          : null,
+        historique_mois_precedents: historyMonthly.slice(0, 6).map((m) => ({
+          mois_key: m.mois_key,
+          vol_total: m.vol_total,
+          presence: m.presence,
+          pv_finale: m.pv_finale,
+          statut: m.statut,
+        })),
       };
     }
   };
@@ -124,10 +228,14 @@ export const ManagerCoachingPage: React.FC = () => {
 
     try {
       const contextData = getAgentContextData(agent);
+      const token = getAuthToken();
 
       const response = await fetch('/api/coaching', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
         body: JSON.stringify({
           agentName: agent.nom_complet,
           periodType,

@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Shield, Lock, User, ArrowRight, ShieldAlert, Eye, EyeOff } from 'lucide-react';
-import { store } from '../lib/store';
 import { setStoredAuth } from '../lib/auth-helpers';
+import { store } from '../lib/store';
 import { ThemeToggle } from '../components/ui/ThemeToggle';
 
 export const LoginPage: React.FC = () => {
@@ -30,7 +30,7 @@ export const LoginPage: React.FC = () => {
     }
 
     try {
-      // 1. Attempt Server API Login
+      // 1. Attempt Server API Login (Server as sole source of truth)
       const res = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -38,146 +38,42 @@ export const LoginPage: React.FC = () => {
           role,
           identifier: cleanId,
           password: cleanPass,
-          clientAgents: store.getAgents(),
         }),
       });
 
-      if (res.ok) {
-        const data = await res.json();
-        if (data.success && data.user) {
-          setStoredAuth(data.user);
-          if (data.user.premier_login) {
-            navigate('/change-password');
-          } else if (role === 'agent') {
-            navigate('/agent');
-          } else {
-            navigate('/manager');
+      const data = await res.json().catch(() => null);
+
+      if (res.ok && data?.success && data?.user) {
+        let finalUser = { ...data.user };
+        if (finalUser.role === 'agent') {
+          const canonical = store.getAgentByMatricule(finalUser.matricule);
+          if (canonical?.nom_complet && !/^AGENT\s+\d+$/i.test(canonical.nom_complet)) {
+            finalUser.name = canonical.nom_complet;
+            finalUser.prenom = canonical.prenom || finalUser.prenom;
+            finalUser.manager_name = canonical.manager_name || finalUser.manager_name;
+            finalUser.log_activite = canonical.log_activite || finalUser.log_activite;
           }
-          return;
         }
-      } else if (res.status === 401 || res.status === 400) {
-        const errData = await res.json().catch(() => null);
-        setError(errData?.error || 'Identifiant ou mot de passe incorrect.');
+        const authObj = {
+          ...finalUser,
+          token: data.token || data.user.token,
+        };
+        setStoredAuth(authObj);
+        if (data.user.premier_login) {
+          navigate('/change-password');
+        } else if (role === 'agent') {
+          navigate('/agent');
+        } else {
+          navigate('/manager');
+        }
         return;
       }
+
+      // If server returns error status or invalid payload
+      setError(data?.error || 'Identifiant ou mot de passe incorrect.');
     } catch {
-      // API unreachable -> execute strict local fallback
-    }
-
-    // 2. Strict Deterministic Local Fallback (NO loose includes, NO !savedPass, NO 123456)
-    const idLower = cleanId.toLowerCase();
-
-    if (role === 'agent') {
-      const agents = store.getAgents();
-      // Exact matching for matricule_rh, log_activite, email, id, or nom_complet
-      const agent = agents.find((a) => {
-        const aMat = (a.matricule_rh || '').toLowerCase();
-        const aLog = (a.log_activite || '').toLowerCase();
-        const aEmail = (a.email || '').toLowerCase();
-        const aId = (a.id || '').toLowerCase();
-        const aName = (a.nom_complet || '').toLowerCase();
-
-        return (
-          aMat === idLower ||
-          aLog === idLower ||
-          aEmail === idLower ||
-          aId === idLower ||
-          aName === idLower ||
-          ('tp' + aMat) === idLower
-        );
-      });
-
-      if (!agent) {
-        setError('Identifiant ou mot de passe incorrect.');
-        return;
-      }
-
-      const savedPass = (agent as any).password;
-      const expectedPass = savedPass || ('TP' + agent.matricule_rh);
-
-      if (cleanPass !== expectedPass) {
-        setError('Identifiant ou mot de passe incorrect.');
-        return;
-      }
-
-      const authData = {
-        role: 'agent' as const,
-        id: agent.id,
-        matricule: agent.matricule_rh,
-        name: agent.nom_complet,
-        prenom: agent.prenom,
-        manager_name: agent.manager_name,
-        premier_login: agent.premier_login ?? false,
-        anciennete: agent.anciennete,
-        log_activite: agent.log_activite,
-      };
-
-      setStoredAuth(authData);
-
-      if (agent.premier_login) {
-        navigate('/change-password');
-      } else {
-        navigate('/agent');
-      }
-    } else {
-      const managers = store.getManagers();
-      let matchedManager: typeof managers[0] | undefined = undefined;
-
-      if (idLower === 'manager') {
-        // "Manager" generic username -> match uniquely by exact password
-        matchedManager = managers.find((m) => {
-          const mPass = m.password || ('TP' + m.matricule);
-          return mPass === cleanPass;
-        });
-      } else {
-        // Specific identifier typed -> exact match on matricule, name, nom, or id
-        matchedManager = managers.find((m) => {
-          const mMat = (m.matricule || '').toLowerCase();
-          const mName = m.name.toLowerCase();
-          const mNom = (m.nom || '').toLowerCase();
-          const mId = (m.id || '').toLowerCase();
-
-          const isIdMatch =
-            mMat === idLower ||
-            mName === idLower ||
-            mNom === idLower ||
-            mId === idLower ||
-            ('tp' + mMat) === idLower;
-
-          if (!isIdMatch) return false;
-
-          const mPass = m.password || ('TP' + m.matricule);
-          return mPass === cleanPass;
-        });
-      }
-
-      if (!matchedManager) {
-        setError('Identifiant ou mot de passe incorrect.');
-        return;
-      }
-
-      const authData = {
-        role: 'manager' as const,
-        id: matchedManager.id,
-        matricule: matchedManager.matricule,
-        name: matchedManager.name,
-        nom: matchedManager.nom,
-        prenom: matchedManager.prenom,
-        manager_name: matchedManager.name,
-        isGlobalAdmin:
-          matchedManager.isGlobalAdmin ??
-          (matchedManager.matricule === '495' || matchedManager.name.includes('SABI')),
-        premier_login: matchedManager.premier_login ?? false,
-        locked_password: matchedManager.locked_password ?? false,
-      };
-
-      setStoredAuth(authData);
-
-      if (matchedManager.premier_login) {
-        navigate('/change-password');
-      } else {
-        navigate('/manager');
-      }
+      // Server unreachable or network error: Fail-Secure
+      setError('Erreur de connexion au serveur. Veuillez réessayer.');
     }
   };
 

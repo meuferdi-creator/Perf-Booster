@@ -1,12 +1,13 @@
 import React, { useState } from 'react';
-import { Outlet } from 'react-router-dom';
-import { Menu } from 'lucide-react';
+import { Outlet, useNavigate } from 'react-router-dom';
+import { Menu, KeyRound } from 'lucide-react';
 import { ManagerSidebar } from './ManagerSidebar';
 import { NotificationBell } from '../agent/NotificationBell';
 import { ThemeToggle } from '../ui/ThemeToggle';
 import { getStoredAuth } from '../../lib/auth-helpers';
 
 export const ManagerLayout: React.FC = () => {
+  const navigate = useNavigate();
   const auth = getStoredAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
@@ -52,7 +53,15 @@ export const ManagerLayout: React.FC = () => {
             </span>
           </div>
 
-          <div className="flex items-center gap-3 sm:gap-4">
+          <div className="flex items-center gap-2 sm:gap-3">
+            <button
+              onClick={() => navigate('/change-password')}
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-purple-100 dark:hover:bg-purple-950/60 text-slate-700 dark:text-slate-300 hover:text-[#814BE7] dark:hover:text-purple-300 text-xs font-semibold border border-slate-200 dark:border-slate-700 transition-colors cursor-pointer"
+              title="Modifier mon mot de passe"
+            >
+              <KeyRound className="w-3.5 h-3.5 text-[#814BE7]" />
+              <span className="hidden sm:inline">Mot de passe</span>
+            </button>
             <ThemeToggle />
             <NotificationBell />
           </div>

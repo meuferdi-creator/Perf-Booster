@@ -1,4 +1,5 @@
 import { CanalType, AncienneteType, WeeklyPerformance } from '../types';
+export type { CanalType };
 
 export const CANALS: CanalType[] = ['Phone', 'Email', 'MU'];
 export const KPI_KEYS = ['rap', 'tr', 'ccx', 'dmt'] as const;

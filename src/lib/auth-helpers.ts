@@ -12,13 +12,35 @@ export function getStoredAuth(): StoredAuth | null {
   }
 }
 
+export function getAuthToken(): string | null {
+  const auth = getStoredAuth();
+  return auth?.token || null;
+}
+
 export function setStoredAuth(data: StoredAuth): void {
   localStorage.setItem(AUTH_KEY, JSON.stringify(data));
 }
 
-export function clearAuth(): void {
+export async function clearAuth(): Promise<void> {
+  const token = getAuthToken();
+  if (token) {
+    try {
+      await fetch('/api/auth/logout', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+      });
+    } catch {
+      // Ignore network errors on logout, but always clear local auth
+    }
+  }
   localStorage.removeItem(AUTH_KEY);
 }
+
+export const clearStoredAuth = clearAuth;
+export const logout = clearAuth;
 
 export function isManager(auth: StoredAuth | null): boolean {
   return auth?.role === 'manager' || auth?.role === 'admin';

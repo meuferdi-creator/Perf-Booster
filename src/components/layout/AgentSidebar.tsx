@@ -10,6 +10,7 @@ import {
   Bot,
   CalendarDays,
   LogOut,
+  KeyRound,
   Zap,
   X,
 } from 'lucide-react';
@@ -23,8 +24,8 @@ export const AgentSidebar: React.FC<AgentSidebarProps> = ({ onClose }) => {
   const navigate = useNavigate();
   const auth = getStoredAuth();
 
-  const handleLogout = () => {
-    clearAuth();
+  const handleLogout = async () => {
+    await clearAuth();
     if (onClose) onClose();
     navigate('/');
   };
@@ -99,25 +100,38 @@ export const AgentSidebar: React.FC<AgentSidebarProps> = ({ onClose }) => {
       </nav>
 
       {/* Footer User Profile */}
-      <div className="p-4 border-t border-slate-800 bg-slate-950/50">
-        <div className="flex items-center justify-between">
+      <div className="p-3.5 border-t border-slate-800 bg-slate-950/60 space-y-2.5">
+        <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-2.5 min-w-0">
             <div className="w-8 h-8 rounded-full bg-indigo-900/60 border border-indigo-700/50 flex items-center justify-center text-indigo-300 font-bold text-xs shrink-0">
               {auth?.name ? auth.name.charAt(0) : 'A'}
             </div>
             <div className="min-w-0">
               <p className="text-xs font-bold text-slate-200 truncate">{auth?.name || 'Agent'}</p>
-              <p className="text-3xs text-slate-500 truncate">Matricule: {auth?.matricule || '1163'}</p>
+              <p className="text-3xs text-slate-400 font-medium truncate">Matricule: {auth?.matricule || '1036'}</p>
             </div>
           </div>
           <button
             onClick={handleLogout}
-            className="p-2 text-slate-400 hover:text-rose-400 rounded-lg hover:bg-slate-800 transition-colors"
+            className="p-2 text-slate-400 hover:text-rose-400 rounded-lg hover:bg-slate-800 transition-colors shrink-0"
             title="Déconnexion"
           >
             <LogOut className="w-4 h-4" />
           </button>
         </div>
+
+        {/* Prominent Change Password Option */}
+        <button
+          onClick={() => {
+            if (onClose) onClose();
+            navigate('/change-password');
+          }}
+          className="w-full flex items-center justify-center gap-2 px-3 py-1.5 rounded-lg bg-indigo-950/80 hover:bg-indigo-900 text-indigo-200 text-xs font-semibold border border-indigo-800/60 hover:border-indigo-600 transition-all cursor-pointer group"
+          title="Modifier le mot de passe"
+        >
+          <KeyRound className="w-3.5 h-3.5 text-indigo-400 group-hover:text-indigo-300" />
+          <span>Modifier mon mot de passe</span>
+        </button>
       </div>
     </aside>
   );

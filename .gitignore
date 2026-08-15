@@ -6,3 +6,6 @@ coverage/
 *.log
 .env*
 !.env.example
+.passwords_db.json
+.agents_db.json
+.data_store.json

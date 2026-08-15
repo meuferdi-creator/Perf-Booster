@@ -33,6 +33,6 @@ export const TableHead: React.FC<{ children: React.ReactNode; className?: string
   <th className={`px-3.5 py-3 font-bold whitespace-nowrap ${className}`}>{children}</th>
 );
 
-export const TableCell: React.FC<{ children: React.ReactNode; className?: string }> = ({ children, className = '' }) => (
-  <td className={`px-3.5 py-3 whitespace-nowrap font-medium ${className}`}>{children}</td>
+export const TableCell: React.FC<{ children: React.ReactNode; className?: string; colSpan?: number }> = ({ children, className = '', colSpan }) => (
+  <td colSpan={colSpan} className={`px-3.5 py-3 whitespace-nowrap font-medium ${className}`}>{children}</td>
 );

@@ -40,7 +40,9 @@ export function App() {
       <Routes>
         {/* Auth Routes */}
         <Route path="/" element={<LoginPage />} />
-        <Route path="/change-password" element={<ChangePasswordPage />} />
+        <Route element={<ProtectedRoute allowedRoles={['agent', 'manager', 'admin']} />}>
+          <Route path="/change-password" element={<ChangePasswordPage />} />
+        </Route>
 
         {/* Agent Routes - Protected */}
         <Route element={<ProtectedRoute allowedRoles={['agent']} />}>

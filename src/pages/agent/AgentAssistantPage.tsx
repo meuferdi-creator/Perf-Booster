@@ -4,7 +4,7 @@ import ReactMarkdown from 'react-markdown';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { store } from '../../lib/store';
-import { getStoredAuth } from '../../lib/auth-helpers';
+import { getStoredAuth, getAuthToken } from '../../lib/auth-helpers';
 
 interface ChatMessage {
   id: string;
@@ -57,9 +57,13 @@ export const AgentAssistantPage: React.FC = () => {
       const allPerfs = store.getWeeklyPerformances();
       const myPerfs = allPerfs.filter((p) => p.agent_id === auth?.id || p.log_activite === auth?.log_activite);
 
+      const token = getAuthToken();
       const response = await fetch('/api/chat', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
         body: JSON.stringify({
           message: query,
           history: messages.map((m) => ({ role: m.role, content: m.content })),

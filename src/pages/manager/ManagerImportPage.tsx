@@ -134,7 +134,7 @@ export const ManagerImportPage: React.FC = () => {
         const missingOptional: string[] = [];
         const localWarnings: string[] = [];
 
-        // Check required / optional field presence
+        // Check required / optional field presence (14 columns)
         const checkField = (label: string, isOptional: boolean, ...aliases: string[]) => {
           const { matchedKey } = findRawValue(sampleRow, ...aliases);
           if (matchedKey) {
@@ -146,17 +146,20 @@ export const ManagerImportPage: React.FC = () => {
           }
         };
 
-        checkField('LOG Activité / Agent', false, 'logactivite', 'log', 'agent', 'nom', 'matricule', 'conseiller');
-        checkField('Canal', false, 'canal', 'channel', 'media');
+        checkField('LOG', false, 'log', 'logactivite', 'agent', 'nom', 'matricule', 'conseiller');
+        checkField('YES', true, 'yes');
+        checkField('NO', true, 'no');
         checkField('RAP', false, 'rap', 'resolution', '1ercontact');
-        checkField('DMT', false, 'dmt', 'duree', 'dureedetraitement');
-        checkField('Volume', false, 'volume', 'vol', 'quantite');
-
-        // Optional columns
+        checkField('YES cumul Mois', true, 'yescumulmois', 'yes cumul mois');
+        checkField('NO cumul Mois', true, 'nocumulmois', 'no cumul mois');
+        checkField('RAP Mois', true, 'rapmois', 'rap mois');
+        checkField('Besoin en OUI', true, 'besoinoui', 'besoin en oui');
         checkField('CCX', true, 'ccx', 'customercontact', 'experienceclient');
         checkField('TR', true, 'tr', 'tauxdetransfert', 'transfert');
-        checkField('H planifiées', true, 'hplanifiees', 'heuresplanifiees', 'hplan', 'planifiees');
-        checkField('H absence', true, 'habsence', 'heuresabsence', 'absence', 'habs');
+        checkField('DMT Mois', false, 'dmtmois', 'dmt mois', 'dmt', 'duree');
+        checkField('Vol Phone', false, 'volphone', 'vol phone', 'volume', 'vol');
+        checkField('H planifiées', true, 'hplanifiees', 'h planifiees', 'heuresplanifiees', 'hplan', 'planifiees');
+        checkField('H absence', true, 'habsence', 'h absence', 'heuresabsence', 'absence', 'habs');
 
         setDetectedColumns(foundCols);
         setMissingOptionalCols(missingOptional);
@@ -469,54 +472,59 @@ export const ManagerImportPage: React.FC = () => {
               {/* Data Preview Table */}
               <div className="overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-800">
                 <table className="w-full text-xs text-left text-slate-700 dark:text-slate-300">
-                  <thead className="bg-slate-50 dark:bg-slate-900 font-bold border-b border-slate-200 dark:border-slate-800 text-2xs uppercase tracking-wider text-slate-500">
+                  <thead className="bg-slate-50 dark:bg-slate-900 font-bold border-b border-slate-200 dark:border-slate-800 text-2xs uppercase tracking-wider text-slate-500 whitespace-nowrap">
                     <tr>
-                      <th className="p-3">#</th>
-                      <th className="p-3">Agent / LOG</th>
-                      <th className="p-3">Canal</th>
-                      <th className="p-3">Semaine</th>
-                      <th className="p-3">RAP</th>
-                      <th className="p-3">TR</th>
-                      <th className="p-3">CCX</th>
-                      <th className="p-3">DMT</th>
-                      <th className="p-3">H Plan.</th>
-                      <th className="p-3">H Abs.</th>
-                      <th className="p-3">Assiduité Calc.</th>
-                      <th className="p-3">Vol.</th>
+                      <th className="p-2.5">#</th>
+                      <th className="p-2.5">LOG</th>
+                      <th className="p-2.5 text-right">YES</th>
+                      <th className="p-2.5 text-right">NO</th>
+                      <th className="p-2.5 text-right">RAP</th>
+                      <th className="p-2.5 text-right">YES Cumul</th>
+                      <th className="p-2.5 text-right">NO Cumul</th>
+                      <th className="p-2.5 text-right">RAP Mois</th>
+                      <th className="p-2.5 text-right">Besoin OUI</th>
+                      <th className="p-2.5 text-right">CCX</th>
+                      <th className="p-2.5 text-right">TR</th>
+                      <th className="p-2.5 text-right">DMT Mois</th>
+                      <th className="p-2.5 text-right">Vol Phone</th>
+                      <th className="p-2.5 text-right">H Plan.</th>
+                      <th className="p-2.5 text-right">H Abs.</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800 font-mono text-2xs">
                     {rawFileRows.slice(0, 15).map((row, idx) => {
-                      const agent = findRawValue(row, 'logactivite', 'log', 'agent', 'nom', 'matricule').val || 'Agent Support';
-                      const canal = findRawValue(row, 'canal', 'channel').val || 'Phone';
-                      const sem = findRawValue(row, 'semaine', 'sem').val || selectedSemaine;
-
-                      const rap = parsePct(findRawValue(row, 'rap', 'resolution').val);
-                      const tr = parsePct(findRawValue(row, 'tr', 'transfert').val);
-                      const ccx = parsePct(findRawValue(row, 'ccx', 'customer').val);
-                      const dmt = parseDmt(findRawValue(row, 'dmt', 'duree').val);
-                      const hPlan = parseNum(findRawValue(row, 'hplanifiees', 'heuresplanifiees', 'planifiees').val) ?? 40;
-                      const hAbs = parseNum(findRawValue(row, 'habsence', 'heuresabsence', 'absence').val) ?? 0;
-                      const vol = parseNum(findRawValue(row, 'volume', 'vol').val);
-
-                      const assid = hPlan > 0 ? Math.max(0, Math.min(100, ((hPlan - hAbs) / hPlan) * 100)) : null;
+                      const log = findRawValue(row, 'log', 'logactivite', 'agent', 'nom').val || row[0] || '—';
+                      const yes = parseNum(findRawValue(row, 'yes').val ?? row[1]);
+                      const no = parseNum(findRawValue(row, 'no').val ?? row[2]);
+                      const rap = parsePct(findRawValue(row, 'rap', 'resolution').val ?? row[3]);
+                      const yesCumul = parseNum(findRawValue(row, 'yescumulmois', 'yes cumul mois').val ?? row[4]);
+                      const noCumul = parseNum(findRawValue(row, 'nocumulmois', 'no cumul mois').val ?? row[5]);
+                      const rapMois = parsePct(findRawValue(row, 'rapmois', 'rap mois').val ?? row[6]);
+                      const besoinOui = parseNum(findRawValue(row, 'besoinoui', 'besoin en oui').val ?? row[7]);
+                      const ccx = parsePct(findRawValue(row, 'ccx', 'customer').val ?? row[8]);
+                      const tr = parsePct(findRawValue(row, 'tr', 'transfert').val ?? row[9]);
+                      const dmt = parseDmt(findRawValue(row, 'dmtmois', 'dmt mois', 'dmt').val ?? row[10]);
+                      const vol = parseNum(findRawValue(row, 'volphone', 'vol phone', 'volume').val ?? row[11]);
+                      const hPlan = parseNum(findRawValue(row, 'hplanifiees', 'heuresplanifiees').val ?? row[12]) ?? 40;
+                      const hAbs = parseNum(findRawValue(row, 'habsence', 'heuresabsence').val ?? row[13]) ?? 0;
 
                       return (
-                        <tr key={idx} className="hover:bg-slate-50/50 dark:hover:bg-slate-900/50">
-                          <td className="p-3 font-semibold text-slate-400">{idx + 1}</td>
-                          <td className="p-3 font-bold text-slate-900 dark:text-slate-100">{String(agent)}</td>
-                          <td className="p-3"><Badge variant="purple">{String(canal)}</Badge></td>
-                          <td className="p-3 font-bold text-[#814BE7]">S{sem}</td>
-                          <td className="p-3">{formatKpiValue('rap', rap)}</td>
-                          <td className="p-3">{tr != null ? formatKpiValue('tr', tr) : <span className="text-slate-400 font-normal italic">Conservé</span>}</td>
-                          <td className="p-3">{ccx != null ? formatKpiValue('ccx', ccx) : <span className="text-slate-400 font-normal italic">Conservé</span>}</td>
-                          <td className="p-3">{dmt != null ? `${dmt}s` : '—'}</td>
-                          <td className="p-3">{hPlan}h</td>
-                          <td className="p-3">{hAbs}h</td>
-                          <td className="p-3 font-bold text-emerald-700 dark:text-emerald-400">
-                            {assid != null ? `${assid.toFixed(1)}%` : '100%'}
-                          </td>
-                          <td className="p-3 font-semibold">{vol ?? '—'}</td>
+                        <tr key={idx} className="hover:bg-slate-50/50 dark:hover:bg-slate-900/50 whitespace-nowrap">
+                          <td className="p-2.5 font-semibold text-slate-400 font-sans">{idx + 1}</td>
+                          <td className="p-2.5 font-bold text-slate-900 dark:text-slate-100 font-sans">{String(log)}</td>
+                          <td className="p-2.5 text-right font-semibold text-emerald-600">{yes ?? '—'}</td>
+                          <td className="p-2.5 text-right font-semibold text-rose-500">{no ?? '—'}</td>
+                          <td className="p-2.5 text-right font-bold text-indigo-600 dark:text-indigo-400">{formatKpiValue('rap', rap)}</td>
+                          <td className="p-2.5 text-right text-slate-600 dark:text-slate-400">{yesCumul ?? '—'}</td>
+                          <td className="p-2.5 text-right text-slate-600 dark:text-slate-400">{noCumul ?? '—'}</td>
+                          <td className="p-2.5 text-right font-semibold">{formatKpiValue('rap', rapMois)}</td>
+                          <td className="p-2.5 text-right text-amber-600 font-semibold">{besoinOui ?? 0}</td>
+                          <td className="p-2.5 text-right">{formatKpiValue('ccx', ccx)}</td>
+                          <td className="p-2.5 text-right">{formatKpiValue('tr', tr)}</td>
+                          <td className="p-2.5 text-right">{dmt != null ? `${dmt}s` : '—'}</td>
+                          <td className="p-2.5 text-right font-bold text-slate-800 dark:text-slate-200">{vol ?? '—'}</td>
+                          <td className="p-2.5 text-right">{hPlan}h</td>
+                          <td className="p-2.5 text-right text-rose-500">{hAbs}h</td>
                         </tr>
                       );
                     })}

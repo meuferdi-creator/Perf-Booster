@@ -13,7 +13,7 @@ export function matchesManagerScope(
   if (!auth) return false;
 
   // Global Admin (SABI Prospere) sees everything
-  if (auth.isGlobalAdmin || auth.matricule === '495' || (auth.name && auth.name.toLowerCase().includes('sabi'))) {
+  if (auth.isGlobalAdmin || auth.matricule === '495' || auth.matricule === '391') {
     return true;
   }
 
@@ -26,25 +26,12 @@ export function matchesManagerScope(
 
   if (!itemMgr) return false;
 
-  // Exact matches
-  if (
+  // Exact comparison against manager full name, nom, or matricule
+  return (
     itemMgr === authName ||
-    (authNom && itemMgr === authNom) ||
-    (authMatricule && itemMgr === authMatricule)
-  ) {
-    return true;
-  }
-
-  // Word boundary matches
-  if (authNom && authNom.length >= 2 && (itemMgr === authNom || itemMgr.startsWith(authNom + ' ') || itemMgr.endsWith(' ' + authNom))) {
-    return true;
-  }
-
-  if (authName && (itemMgr === authName || itemMgr.startsWith(authName + ' ') || itemMgr.endsWith(' ' + authName))) {
-    return true;
-  }
-
-  return false;
+    (authNom !== '' && itemMgr === authNom) ||
+    (authMatricule !== '' && itemMgr === authMatricule)
+  );
 }
 
 export function isDummyOrSupportAgent(
@@ -91,7 +78,7 @@ export function filterByManager<T extends { manager_name?: string; agent_name?: 
     return !isDummyOrSupportAgent(name, item.matricule_rh, item.log_activite);
   });
 
-  if (auth.isGlobalAdmin || auth.matricule === '495' || (auth.name && auth.name.includes('SABI'))) {
+  if (auth.isGlobalAdmin || auth.matricule === '495' || auth.matricule === '391') {
     return cleanItems;
   }
   return cleanItems.filter((i) => matchesManagerScope(i?.manager_name, auth));
@@ -110,7 +97,7 @@ export function assertInScope<T extends { manager_name?: string }>(
 ): boolean {
   const auth = getStoredAuth();
   if (!auth) return false;
-  if (auth.isGlobalAdmin || auth.matricule === '495' || (auth.name && auth.name.includes('SABI'))) {
+  if (auth.isGlobalAdmin || auth.matricule === '495' || auth.matricule === '391') {
     return true;
   }
   return matchesManagerScope(record?.manager_name, auth);

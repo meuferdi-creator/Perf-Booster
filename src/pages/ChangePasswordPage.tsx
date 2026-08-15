@@ -4,7 +4,7 @@ import { KeyRound, ShieldCheck, ArrowLeft, Lock, Eye, EyeOff, CheckCircle2 } fro
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { ThemeToggle } from '../components/ui/ThemeToggle';
-import { getStoredAuth, setStoredAuth } from '../lib/auth-helpers';
+import { getStoredAuth, setStoredAuth, getAuthToken } from '../lib/auth-helpers';
 import { store } from '../lib/store';
 
 export const ChangePasswordPage: React.FC = () => {
@@ -16,6 +16,23 @@ export const ChangePasswordPage: React.FC = () => {
   const [showConfirm, setShowConfirm] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+
+  // Dynamically resolve agent's real profile from authoritative store/matricule
+  const agentProfile = auth?.matricule ? store.getAgentByMatricule(auth.matricule) : null;
+  const displayName = agentProfile?.nom_complet || (auth as any)?.nom_complet || auth?.name || 'l\'utilisateur';
+
+  // Auto-heal stale cached name in stored auth if needed
+  React.useEffect(() => {
+    if (auth && agentProfile?.nom_complet && auth.name !== agentProfile.nom_complet) {
+      setStoredAuth({
+        ...auth,
+        name: agentProfile.nom_complet,
+        prenom: agentProfile.prenom || auth.prenom,
+        manager_name: agentProfile.manager_name || auth.manager_name,
+        log_activite: agentProfile.log_activite || auth.log_activite,
+      });
+    }
+  }, [auth, agentProfile]);
 
   const isFirstLogin = auth?.premier_login ?? false;
 
@@ -34,35 +51,29 @@ export const ChangePasswordPage: React.FC = () => {
     }
 
     if (auth) {
-      auth.premier_login = false;
-      setStoredAuth(auth);
-
-      // Call API
+      const token = getAuthToken();
       try {
-        await fetch('/api/auth/change-password', {
+        const res = await fetch('/api/auth/change-password', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json',
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
           body: JSON.stringify({ role: auth.role, id: auth.id, matricule: auth.matricule, newPassword }),
         });
-      } catch {
-        // ignore network failure for local state fallback
+
+        if (!res.ok) {
+          const data = await res.json().catch(() => null);
+          setError(data?.error || 'Échec de la mise à jour du mot de passe sur le serveur.');
+          return;
+        }
+      } catch (err) {
+        setError('Erreur réseau lors du changement de mot de passe.');
+        return;
       }
 
-      if (auth.role === 'agent') {
-        const agent = store.getAgents().find((a) => a.id === auth.id);
-        if (agent) {
-          agent.premier_login = false;
-          (agent as any).password = newPassword;
-          store.saveAgent(agent);
-        }
-      } else {
-        const manager = store.getManagers().find((m) => m.id === auth.id || m.matricule === auth.matricule);
-        if (manager) {
-          manager.premier_login = false;
-          manager.password = newPassword;
-          store.saveManager(manager);
-        }
-      }
+      auth.premier_login = false;
+      setStoredAuth(auth);
 
       setSuccess('Votre mot de passe a été mis à jour avec succès.');
 
@@ -102,7 +113,7 @@ export const ChangePasswordPage: React.FC = () => {
             {isFirstLogin ? 'Changement de mot de passe obligatoire' : 'Modification du mot de passe'}
           </h2>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-            Compte : <strong>{auth?.name || 'l\'utilisateur'}</strong>. Choisissez un nouveau mot de passe sécurisé.
+            Compte : <strong>{displayName}</strong>{auth?.matricule ? ` (Matricule : ${auth.matricule})` : ''}. Choisissez un nouveau mot de passe sécurisé.
           </p>
         </div>
 
